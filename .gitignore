@@ -1,0 +1,13 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+.idea
+*.DotSettings.user
+*.env
+.env.*
+!.env.*.example
+appsettings.Production.json
+secrets.json
+.DS_Store

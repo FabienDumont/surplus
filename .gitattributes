@@ -1,0 +1,18 @@
+# Normalize line endings across all platforms.
+# All text files use LF in the repository and working tree.
+* text=auto eol=lf
+
+# Binary files — never modify.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Windows-specific scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

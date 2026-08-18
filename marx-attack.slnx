@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="marx-attack.Application/marx-attack.Application.csproj" />
+    <Project Path="marx-attack.Console/marx-attack.Console.csproj" />
+    <Project Path="marx-attack.Domain/marx-attack.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="marx-attack.Application.Tests/marx-attack.Application.Tests.csproj" />
+    <Project Path="marx-attack.Domain.Tests/marx-attack.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
