@@ -71,14 +71,16 @@ public class ExchangeValueTests
   private static Commodity Linen(decimal hoursPerYard = 1m)
   {
     return Commodity.Produce(
-      "Linen", UseValue.Of("clothing material", UnitOfMeasure.Of("yard")), LaborTime.FromHours(hoursPerYard)
+      "Linen", UseValue.Of("clothing material", UnitOfMeasure.Of("yard")), Department.MeansOfConsumption,
+      LaborTime.FromHours(hoursPerYard)
     );
   }
 
   private static Commodity Coat(decimal hoursPerCoat = 20m)
   {
     return Commodity.Produce(
-      "Coat", UseValue.Of("warmth", UnitOfMeasure.Of("coat")), LaborTime.FromHours(hoursPerCoat)
+      "Coat", UseValue.Of("warmth", UnitOfMeasure.Of("coat")), Department.MeansOfConsumption,
+      LaborTime.FromHours(hoursPerCoat)
     );
   }
 

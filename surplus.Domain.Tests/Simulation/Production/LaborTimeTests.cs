@@ -71,5 +71,31 @@ public class LaborTimeTests
     Assert.False(LaborTime.FromHours(1m).IsNone);
   }
 
+  [Fact]
+  public void Labor_spread_over_a_number_of_things_falls_to_each_of_them()
+  {
+    Assert.Equal(LaborTime.FromHours(2m), LaborTime.FromHours(240m) / 120m);
+    Assert.Throws<DomainException>(() => LaborTime.FromHours(240m) / 0m);
+    Assert.Throws<DomainException>(() => LaborTime.FromHours(240m) / -2m);
+  }
+
+  [Fact]
+  public void Scaling_repeats_the_same_labor_so_many_times_over()
+  {
+    Assert.Equal(LaborTime.FromHours(6m), LaborTime.FromHours(2m) * 3m);
+    Assert.Equal(LaborTime.None, LaborTime.FromHours(2m) * 0m);
+    Assert.Throws<DomainException>(() => LaborTime.FromHours(2m) * -1m);
+  }
+
+  [Fact]
+  public void Subtraction_takes_labor_out_of_a_span_that_holds_it()
+  {
+    Assert.Equal(LaborTime.FromHours(6m), LaborTime.FromHours(12m) - LaborTime.FromHours(6m));
+    Assert.Equal(LaborTime.None, LaborTime.FromHours(6m) - LaborTime.FromHours(6m));
+    Assert.Throws<DomainException>(() => LaborTime.FromHours(6m) - LaborTime.FromHours(7m));
+  }
+
+
+
   #endregion
 }

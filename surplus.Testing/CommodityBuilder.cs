@@ -11,6 +11,7 @@ public sealed class CommodityBuilder
 {
   #region Fields
 
+  private Department _department = Department.MeansOfConsumption;
   private CommodityId _id = CommodityId.New();
   private string _name = "Coat";
   private UseValue _useValue = new UseValueBuilder().Build();
@@ -30,6 +31,13 @@ public sealed class CommodityBuilder
   public CommodityBuilder WithName(string name)
   {
     _name = name;
+
+    return this;
+  }
+
+  public CommodityBuilder WithDepartment(Department department)
+  {
+    _department = department;
 
     return this;
   }
@@ -59,7 +67,7 @@ public sealed class CommodityBuilder
 
   public Commodity Build()
   {
-    return Commodity.Load(_id, _name, _useValue, _value);
+    return Commodity.Load(_id, _name, _useValue, _department, _value);
   }
 
   #endregion

@@ -39,6 +39,16 @@ public class ValueTests
   }
 
   [Fact]
+  public void Scaling_a_value_holds_the_labor_of_the_whole_mass()
+  {
+    // A hundred yards hold a hundred times the labour of one, because the
+    // labour was performed a hundred times over.
+    Assert.Equal(
+      Value.CrystallisedFrom(LaborTime.FromHours(200m)), Value.CrystallisedFrom(LaborTime.FromHours(2m)) * 100m
+    );
+  }
+
+  [Fact]
   public void Things_can_be_use_values_without_being_values()
   {
     // Air, virgin soil: useful, yet owing nothing to labour.

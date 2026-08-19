@@ -11,10 +11,20 @@ public class CommodityTests
   #region Tests
 
   [Fact]
+  public void A_commodity_belongs_to_the_department_whose_consumption_it_enters()
+  {
+    var iron = new UseValueBuilder().WithSatisfiedWant("working up into machines").WithUnit("ton").Build();
+
+    var commodity = Commodity.Produce("Iron", iron, Department.MeansOfProduction, LaborTime.FromHours(6m));
+
+    Assert.Equal(Department.MeansOfProduction, commodity.Department);
+  }
+
+  [Fact]
   public void A_commodity_must_have_a_name()
   {
     Assert.Throws<DomainException>(() => Commodity.Produce(
-        "   ", new UseValueBuilder().Build(), LaborTime.FromHours(1m)
+        "   ", new UseValueBuilder().Build(), Department.MeansOfConsumption, LaborTime.FromHours(1m)
       )
     );
   }
@@ -32,11 +42,32 @@ public class CommodityTests
   {
     var clothing = new UseValueBuilder().Build();
 
-    var coat = Commodity.Produce("  Coat  ", clothing, LaborTime.FromHours(20m));
+    var coat = Commodity.Produce("  Coat  ", clothing, Department.MeansOfConsumption, LaborTime.FromHours(20m));
 
     Assert.Equal("Coat", coat.Name);
     Assert.Equal(clothing, coat.UseValue);
     Assert.Equal(Value.CrystallisedFrom(LaborTime.FromHours(20m)), coat.Value);
+  }
+
+  [Fact]
+  public void A_commodity_whose_reproduction_costs_no_labor_has_ceased_to_be_one()
+  {
+    var linen = new CommodityBuilder().WithName("Linen").Build();
+
+    Assert.Throws<DomainException>(() => linen.Revalue(LaborTime.None));
+  }
+
+  [Fact]
+  public void A_rise_in_productivity_depreciates_what_is_already_produced()
+  {
+    // The power-loom halves the labour of weaving, and the cloth on the shelf —
+    // hand-woven, already finished, untouched — falls with it.
+    var linen = new CommodityBuilder().WithName("Linen").WithSociallyNecessaryLaborTime(LaborTime.FromHours(2m))
+      .Build();
+
+    linen.Revalue(LaborTime.FromHours(1m));
+
+    Assert.Equal(Value.CrystallisedFrom(LaborTime.FromHours(1m)), linen.Value);
   }
 
   [Fact]
@@ -46,11 +77,12 @@ public class CommodityTests
     var linen = new UseValueBuilder().WithSatisfiedWant("clothing material").WithUnit("yard").Build();
 
     var commodity = new CommodityBuilder().WithId(id).WithName("Linen").WithUseValue(linen)
-      .WithSociallyNecessaryLaborTime(LaborTime.FromHours(10m)).Build();
+      .WithDepartment(Department.MeansOfProduction).WithSociallyNecessaryLaborTime(LaborTime.FromHours(10m)).Build();
 
     Assert.Equal(id, commodity.Id);
     Assert.Equal("Linen", commodity.Name);
     Assert.Equal(linen, commodity.UseValue);
+    Assert.Equal(Department.MeansOfProduction, commodity.Department);
     Assert.Equal(Value.CrystallisedFrom(LaborTime.FromHours(10m)), commodity.Value);
   }
 
@@ -60,7 +92,9 @@ public class CommodityTests
     // Air and virgin soil are use-values, not commodities.
     var breathable = new UseValueBuilder().WithSatisfiedWant("breathing").WithUnit("litre").Build();
 
-    Assert.Throws<DomainException>(() => Commodity.Produce("Air", breathable, LaborTime.None));
+    Assert.Throws<DomainException>(
+      () => Commodity.Produce("Air", breathable, Department.MeansOfConsumption, LaborTime.None)
+    );
   }
 
   [Fact]
@@ -68,8 +102,8 @@ public class CommodityTests
   {
     var useValue = new UseValueBuilder().Build();
 
-    var first = Commodity.Produce("Coat", useValue, LaborTime.FromHours(20m));
-    var second = Commodity.Produce("Coat", useValue, LaborTime.FromHours(20m));
+    var first = Commodity.Produce("Coat", useValue, Department.MeansOfConsumption, LaborTime.FromHours(20m));
+    var second = Commodity.Produce("Coat", useValue, Department.MeansOfConsumption, LaborTime.FromHours(20m));
 
     Assert.NotEqual(first.Id, second.Id);
   }

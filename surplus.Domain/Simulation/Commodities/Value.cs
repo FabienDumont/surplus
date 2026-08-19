@@ -62,6 +62,24 @@ public sealed record Value : IComparable<Value>
     return new Value(left.Magnitude + right.Magnitude);
   }
 
+  /// <summary>
+  /// The value of the mass shared out over the things that make it up: what one
+  /// of them holds.
+  /// </summary>
+  public static Value operator /(Value value, decimal divisor)
+  {
+    return new Value(value.Magnitude / divisor);
+  }
+
+  /// <summary>
+  /// The value of a mass of one kind: a hundred yards of linen hold a hundred
+  /// times the labour of one, for the labour was performed a hundred times over.
+  /// </summary>
+  public static Value operator *(Value value, decimal factor)
+  {
+    return new Value(value.Magnitude * factor);
+  }
+
   public override string ToString()
   {
     return $"value of {Magnitude}";

@@ -1,4 +1,5 @@
 using Surplus.Domain.Simulation.Countries;
+using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
 
 namespace Surplus.Testing;
@@ -10,6 +11,7 @@ public sealed class ProvinceBuilder
 {
   #region Fields
 
+  private readonly List<Branch> _branches = [];
   private ClassComposition _composition = new ClassCompositionBuilder().Build();
   private ProvinceId _id = ProvinceId.New();
   private string _name = "Île-de-France";
@@ -42,10 +44,18 @@ public sealed class ProvinceBuilder
   public ProvinceBuilder WithClasses(params ClassPresence[] presences) =>
     WithComposition(ClassComposition.Of(presences));
 
+  public ProvinceBuilder Working(params Branch[] branches)
+  {
+    _branches.Clear();
+    _branches.AddRange(branches);
+
+    return this;
+  }
+
   /// <summary>Shorthand for a province whose population has yet to be settled.</summary>
   public ProvinceBuilder Unpeopled() => WithComposition(ClassComposition.Empty);
 
-  public Province Build() => Province.Load(_id, _name, _composition);
+  public Province Build() => Province.Load(_id, _name, _composition, _branches);
 
   #endregion
 }
