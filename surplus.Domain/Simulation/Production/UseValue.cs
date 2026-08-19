@@ -12,22 +12,39 @@ namespace Surplus.Domain.Simulation.Production;
 /// </summary>
 public sealed record UseValue
 {
-    /// <summary>The human want this use-value satisfies (warmth, nourishment, clothing…).</summary>
-    public string SatisfiedWant { get; }
+  #region Properties
 
-    /// <summary>The unit in which this particular usefulness is measured.</summary>
-    public UnitOfMeasure Unit { get; }
+  /// <summary>The human want this use-value satisfies (warmth, nourishment, clothing…).</summary>
+  public string SatisfiedWant { get; }
 
-    private UseValue(string satisfiedWant, UnitOfMeasure unit)
-    {
-        SatisfiedWant = satisfiedWant;
-        Unit = unit;
-    }
+  /// <summary>The unit in which this particular usefulness is measured.</summary>
+  public UnitOfMeasure Unit { get; }
 
-    public static UseValue Of(string satisfiedWant, UnitOfMeasure unit) =>
-        string.IsNullOrWhiteSpace(satisfiedWant)
-            ? throw new DomainException("A use-value must satisfy some human want.")
-            : new UseValue(satisfiedWant.Trim(), unit);
+  #endregion
 
-    public override string ToString() => $"satisfies the want for {SatisfiedWant}";
+  #region Ctors
+
+  private UseValue(string satisfiedWant, UnitOfMeasure unit)
+  {
+    SatisfiedWant = satisfiedWant;
+    Unit = unit;
+  }
+
+  #endregion
+
+  #region Methods
+
+  public static UseValue Of(string satisfiedWant, UnitOfMeasure unit)
+  {
+    return string.IsNullOrWhiteSpace(satisfiedWant)
+      ? throw new DomainException("A use-value must satisfy some human want.")
+      : new UseValue(satisfiedWant.Trim(), unit);
+  }
+
+  public override string ToString()
+  {
+    return $"satisfies the want for {SatisfiedWant}";
+  }
+
+  #endregion
 }

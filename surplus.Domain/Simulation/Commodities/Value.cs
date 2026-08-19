@@ -13,33 +13,68 @@ namespace Surplus.Domain.Simulation.Commodities;
 /// </summary>
 public sealed record Value : IComparable<Value>
 {
-    /// <summary>
-    /// Things can be use-values without being values: air, virgin soil,
-    /// natural meadows owe their utility to no labour.
-    /// </summary>
-    public static readonly Value None = new(LaborTime.None);
+  #region Fields
 
-    public LaborTime Magnitude { get; }
+  /// <summary>
+  /// Things can be use-values without being values: air, virgin soil,
+  /// natural meadows owe their utility to no labour.
+  /// </summary>
+  public static readonly Value None = new(LaborTime.None);
 
-    private Value(LaborTime magnitude) => Magnitude = magnitude;
+  #endregion
 
-    /// <summary>Value has no source other than labour.</summary>
-    public static Value CrystallisedFrom(LaborTime sociallyNecessaryLaborTime) =>
-        new(sociallyNecessaryLaborTime);
+  #region Properties
 
-    public bool IsNone => Magnitude.IsNone;
+  public LaborTime Magnitude { get; }
 
-    /// <summary>
-    /// The definite quantitative proportion between two values — what surfaces
-    /// as exchange-value when two commodities face each other.
-    /// </summary>
-    public decimal RatioTo(Value other) => Magnitude.RatioTo(other.Magnitude);
+  public bool IsNone => Magnitude.IsNone;
 
-    public static Value operator +(Value left, Value right) =>
-        new(left.Magnitude + right.Magnitude);
+  #endregion
 
-    public int CompareTo(Value? other) =>
-        other is null ? 1 : Magnitude.CompareTo(other.Magnitude);
+  #region Ctors
 
-    public override string ToString() => $"value of {Magnitude}";
+  private Value(LaborTime magnitude)
+  {
+    Magnitude = magnitude;
+  }
+
+  #endregion
+
+  #region Methods
+
+  /// <summary>Value has no source other than labour.</summary>
+  public static Value CrystallisedFrom(LaborTime sociallyNecessaryLaborTime)
+  {
+    return new Value(sociallyNecessaryLaborTime);
+  }
+
+  /// <summary>
+  /// The definite quantitative proportion between two values — what surfaces
+  /// as exchange-value when two commodities face each other.
+  /// </summary>
+  public decimal RatioTo(Value other)
+  {
+    return Magnitude.RatioTo(other.Magnitude);
+  }
+
+  public static Value operator +(Value left, Value right)
+  {
+    return new Value(left.Magnitude + right.Magnitude);
+  }
+
+  public override string ToString()
+  {
+    return $"value of {Magnitude}";
+  }
+
+  #endregion
+
+  #region Implementation of IComparable<Value>
+
+  public int CompareTo(Value? other)
+  {
+    return other is null ? 1 : Magnitude.CompareTo(other.Magnitude);
+  }
+
+  #endregion
 }

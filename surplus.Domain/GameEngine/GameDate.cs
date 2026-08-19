@@ -8,21 +8,38 @@ namespace Surplus.Domain.GameEngine;
 /// </summary>
 public readonly record struct GameDate(DateOnly Date) : IComparable<GameDate>
 {
-    public static GameDate Of(int year, int month, int day)
+  #region Methods
+
+  public static GameDate Of(int year, int month, int day)
+  {
+    try
     {
-        try
-        {
-            return new GameDate(new DateOnly(year, month, day));
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            throw new DomainException($"{year:0000}-{month:00}-{day:00} is not a valid calendar date.");
-        }
+      return new GameDate(new DateOnly(year, month, day));
     }
+    catch (ArgumentOutOfRangeException)
+    {
+      throw new DomainException($"{year:0000}-{month:00}-{day:00} is not a valid calendar date.");
+    }
+  }
 
-    public GameDate NextDay() => new(Date.AddDays(1));
+  public GameDate NextDay()
+  {
+    return new GameDate(Date.AddDays(1));
+  }
 
-    public int CompareTo(GameDate other) => Date.CompareTo(other.Date);
+  public override string ToString()
+  {
+    return Date.ToString("yyyy-MM-dd");
+  }
 
-    public override string ToString() => Date.ToString("yyyy-MM-dd");
+  #endregion
+
+  #region Implementation of IComparable<GameDate>
+
+  public int CompareTo(GameDate other)
+  {
+    return Date.CompareTo(other.Date);
+  }
+
+  #endregion
 }

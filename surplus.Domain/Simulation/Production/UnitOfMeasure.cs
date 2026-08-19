@@ -10,14 +10,34 @@ namespace Surplus.Domain.Simulation.Production;
 /// </summary>
 public sealed record UnitOfMeasure
 {
-    public string Name { get; }
+  #region Properties
 
-    private UnitOfMeasure(string name) => Name = name;
+  public string Name { get; }
 
-    public static UnitOfMeasure Of(string name) =>
-        string.IsNullOrWhiteSpace(name)
-            ? throw new DomainException("A unit of measure must have a name.")
-            : new UnitOfMeasure(name.Trim());
+  #endregion
 
-    public override string ToString() => Name;
+  #region Ctors
+
+  private UnitOfMeasure(string name)
+  {
+    Name = name;
+  }
+
+  #endregion
+
+  #region Methods
+
+  public static UnitOfMeasure Of(string name)
+  {
+    return string.IsNullOrWhiteSpace(name)
+      ? throw new DomainException("A unit of measure must have a name.")
+      : new UnitOfMeasure(name.Trim());
+  }
+
+  public override string ToString()
+  {
+    return Name;
+  }
+
+  #endregion
 }

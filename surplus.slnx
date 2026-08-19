@@ -1,11 +1,12 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="surplus.Application/surplus.Application.csproj" />
-    <Project Path="surplus.Console/surplus.Console.csproj" />
-    <Project Path="surplus.Domain/surplus.Domain.csproj" />
+    <Project Path="surplus.Application/surplus.Application.csproj"/>
+    <Project Path="surplus.Console/surplus.Console.csproj"/>
+    <Project Path="surplus.Domain/surplus.Domain.csproj"/>
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="surplus.Application.Tests/surplus.Application.Tests.csproj" />
-    <Project Path="surplus.Domain.Tests/surplus.Domain.Tests.csproj" />
+    <Project Path="surplus.Application.Tests/surplus.Application.Tests.csproj"/>
+    <Project Path="surplus.Domain.Tests/surplus.Domain.Tests.csproj"/>
+    <Project Path="surplus.Testing/surplus.Testing.csproj"/>
   </Folder>
 </Solution>

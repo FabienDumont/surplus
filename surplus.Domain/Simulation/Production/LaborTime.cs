@@ -8,32 +8,65 @@ namespace Surplus.Domain.Simulation.Production;
 /// </summary>
 public readonly record struct LaborTime : IComparable<LaborTime>
 {
-    public static readonly LaborTime None = new(0m);
+  #region Fields
 
-    public decimal Hours { get; }
+  public static readonly LaborTime None = new(0m);
 
-    private LaborTime(decimal hours) => Hours = hours;
+  #endregion
 
-    public static LaborTime FromHours(decimal hours) =>
-        hours < 0m
-            ? throw new DomainException("Labour time cannot be negative.")
-            : new LaborTime(hours);
+  #region Properties
 
-    public bool IsNone => Hours == 0m;
+  public decimal Hours { get; }
 
-    public static LaborTime operator +(LaborTime left, LaborTime right) =>
-        new(left.Hours + right.Hours);
+  public bool IsNone => Hours == 0m;
 
-    /// <summary>
-    /// Labour times are homogeneous, so any two of them stand in a definite
-    /// quantitative proportion to one another.
-    /// </summary>
-    public decimal RatioTo(LaborTime other) =>
-        other.IsNone
-            ? throw new DomainException("No proportion can be formed with a thing that contains no labour.")
-            : Hours / other.Hours;
+  #endregion
 
-    public int CompareTo(LaborTime other) => Hours.CompareTo(other.Hours);
+  #region Ctors
 
-    public override string ToString() => $"{Hours}h of labour";
+  private LaborTime(decimal hours)
+  {
+    Hours = hours;
+  }
+
+  #endregion
+
+  #region Methods
+
+  public static LaborTime FromHours(decimal hours)
+  {
+    return hours < 0m ? throw new DomainException("Labour time cannot be negative.") : new LaborTime(hours);
+  }
+
+  public static LaborTime operator +(LaborTime left, LaborTime right)
+  {
+    return new LaborTime(left.Hours + right.Hours);
+  }
+
+  /// <summary>
+  /// Labour times are homogeneous, so any two of them stand in a definite
+  /// quantitative proportion to one another.
+  /// </summary>
+  public decimal RatioTo(LaborTime other)
+  {
+    return other.IsNone
+      ? throw new DomainException("No proportion can be formed with a thing that contains no labour.")
+      : Hours / other.Hours;
+  }
+
+  public override string ToString()
+  {
+    return $"{Hours}h of labour";
+  }
+
+  #endregion
+
+  #region Implementation of IComparable<LaborTime>
+
+  public int CompareTo(LaborTime other)
+  {
+    return Hours.CompareTo(other.Hours);
+  }
+
+  #endregion
 }
