@@ -7,3 +7,5 @@ public abstract class CommodityIdTag : IStrongIdTag;
 public abstract class CountryIdTag : IStrongIdTag;
 
 public abstract class ProvinceIdTag : IStrongIdTag;
+
+public abstract class WarIdTag : IStrongIdTag;

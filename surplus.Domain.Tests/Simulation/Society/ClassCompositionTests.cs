@@ -242,5 +242,42 @@ public class ClassCompositionTests
     Assert.Equal(ModeOfProduction.Socialist, composition.PrevailingMode);
   }
 
+  [Fact]
+  public void A_feudal_structure_can_arm_very_nearly_everyone_in_it()
+  {
+    Assert.Equal(915, new ClassCompositionBuilder().Build().Armable);
+  }
+
+  [Fact]
+  public void A_slave_structure_can_arm_almost_no_one()
+  {
+    // Four thousand people, and a hundred of them may be given a musket. The
+    // mode of production settles the size of the army without any rule saying so.
+    var plantation = ClassComposition.Of(
+      ClassPresence.Of(SocialClass.Slaves, 4_000),
+      ClassPresence.Of(SocialClass.SlaveOwners, 100));
+
+    Assert.Equal(4_100, plantation.Population);
+    Assert.Equal(100, plantation.Armable);
+  }
+
+  [Fact]
+  public void Emancipation_is_also_a_recruiting_measure()
+  {
+    // The same people, no longer owned, are now the reserve the state can call on.
+    var before = ClassComposition.Of(ClassPresence.Of(SocialClass.Slaves, 4_000));
+
+    var after = before.Transformed(SocialClass.Slaves, SocialClass.Freedmen, 4_000);
+
+    Assert.Equal(0, before.Armable);
+    Assert.Equal(4_000, after.Armable);
+  }
+
+  [Fact]
+  public void A_structure_with_no_one_in_it_can_arm_no_one()
+  {
+    Assert.Equal(0, ClassComposition.Empty.Armable);
+  }
+
   #endregion
 }

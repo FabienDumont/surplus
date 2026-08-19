@@ -150,5 +150,35 @@ public class SocialClassesTests
     Assert.Equal("Proletariat (SellsLaborPower, lives on Wages)", SocialClass.Proletariat.Profile().ToString());
   }
 
+  [Fact]
+  public void You_cannot_arm_those_you_own()
+  {
+    // Arming the chattel is what being chattel rules out. Rome came to it only
+    // after Cannae, and the Confederacy only in 1865, when raising the question
+    // was already the answer.
+    Assert.False(SocialClass.Slaves.Profile().CanBeArmed);
+  }
+
+  [Fact]
+  public void Every_other_class_can_be_put_under_arms()
+  {
+    var unarmable = Enum.GetValues<SocialClass>()
+      .Where(socialClass => !socialClass.Profile().CanBeArmed)
+      .ToList();
+
+    Assert.Equal([SocialClass.Slaves], unarmable);
+  }
+
+  [Fact]
+  public void The_classes_a_state_leans_on_are_the_ones_it_arms()
+  {
+    // The feudal levy, the mass conscript army, and the reactionary mob that
+    // Bonaparte drew out of the lumpenproletariat: all of them armable.
+    Assert.True(SocialClass.Serfs.Profile().CanBeArmed);
+    Assert.True(SocialClass.Proletariat.Profile().CanBeArmed);
+    Assert.True(SocialClass.FeudalLords.Profile().CanBeArmed);
+    Assert.True(SocialClass.Lumpenproletariat.Profile().CanBeArmed);
+  }
+
   #endregion
 }

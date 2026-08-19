@@ -26,6 +26,16 @@ public sealed record ClassProfile
       or ProductionRelation.CommonOwnership;
 
   /// <summary>
+  /// Whether this class can be put under arms. One relation forbids it: you
+  /// cannot arm those you own, because owning them is exactly what being armed
+  /// would end. Rome armed its slaves only after Cannae, and the Confederacy
+  /// debated it only in 1865, when the debate itself was an admission.
+  /// Every other class can be armed — which is not to say safely. Arming the
+  /// class with the most reason to turn is how a state trains its gravediggers.
+  /// </summary>
+  public bool CanBeArmed => Relation is not ProductionRelation.IsOwned;
+
+  /// <summary>
   /// Whether this class lives on labour it did not perform. The bureaucracy is
   /// deliberately excluded: whether its privileges make it a class or merely a
   /// caste is a question Marxists have never settled, and the simulation should

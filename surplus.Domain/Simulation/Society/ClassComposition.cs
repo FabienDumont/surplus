@@ -54,6 +54,15 @@ public sealed record ClassComposition
       .DefaultIfEmpty(ModeOfProduction.PrimitiveCommunal)
       .First();
 
+  /// <summary>
+  /// Those who could be put under arms. The mode of production shapes this
+  /// without any rule needing to say so: a feudal structure yields a levy of
+  /// serfs because that is who is there, and a capitalist one yields a mass
+  /// conscript army for the same reason.
+  /// </summary>
+  public int Armable =>
+    _presences.Where(presence => presence.Profile.CanBeArmed).Sum(presence => presence.Heads);
+
   /// <summary>Whether any class here lives on the surplus-labour of another.</summary>
   public bool IsAntagonistic => _presences.Any(presence => presence.Profile.AppropriatesSurplus);
 
