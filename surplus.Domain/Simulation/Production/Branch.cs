@@ -196,6 +196,7 @@ public sealed class Branch
     NecessaryLabor = necessaryLabor;
   }
 
+  /// <summary>Takes on hands, and the means to set them at in the same proportion.</summary>
   internal void Employ(int hands)
   {
     if (hands <= 0)
@@ -203,9 +204,14 @@ public sealed class Branch
       throw new DomainException("A branch takes on someone, or no one.");
     }
 
-    Hands += hands;
+    Rescale(Hands + hands);
   }
 
+  /// <summary>
+  /// Turns hands out, and with them their share of the means. The looms they
+  /// leave are not set aside for later: nothing keeps them in repair, so they
+  /// are scrapped.
+  /// </summary>
   internal void LayOff(int hands)
   {
     if (hands <= 0)
@@ -218,7 +224,14 @@ public sealed class Branch
       throw new DomainException($"There are not {hands} hands at work here to turn off.");
     }
 
-    Hands -= hands;
+    Rescale(Hands - hands);
+  }
+
+  /// <summary>Brings the means into proportion with a new head count; form and wear are unchanged.</summary>
+  private void Rescale(int hands)
+  {
+    Means = Means.Scaled((decimal)hands / Hands);
+    Hands = hands;
   }
 
   private static void RejectTooFewHandsFor(ProductiveForm form, int hands)

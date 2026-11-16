@@ -40,6 +40,57 @@ public class MeansOfProductionTests
   }
 
   [Fact]
+  public void A_period_uses_up_the_whole_of_the_material_and_the_worn_share_of_the_instruments()
+  {
+    var (_, loom, yarn) = Weaving();
+
+    var means = MeansOfProduction.SetInMotion(
+      ProductiveForm.Manufacture, 0.02m, [Stock.Of(loom.Id, Quantity.Of(50m, Loom))],
+      [Stock.Of(yarn.Id, Quantity.Of(10m, Pound))]
+    );
+
+    Assert.Equal(
+      [Stock.Of(yarn.Id, Quantity.Of(10m, Pound)), Stock.Of(loom.Id, Quantity.Of(1m, Loom))],
+      means.ConsumedInOnePeriod()
+    );
+  }
+
+  [Fact]
+  public void Bare_hands_use_up_nothing()
+  {
+    var (_, loom, _) = Weaving();
+
+    Assert.Empty(MeansOfProduction.None(ProductiveForm.Handicraft).ConsumedInOnePeriod());
+    Assert.Empty(
+      MeansOfProduction.SetInMotion(ProductiveForm.Handicraft, 0m, [Stock.Of(loom.Id, Quantity.Of(1m, Loom))], [])
+        .ConsumedInOnePeriod()
+    );
+  }
+
+  [Fact]
+  public void Means_for_twice_the_hands_are_twice_the_means()
+  {
+    var (_, loom, yarn) = Weaving();
+
+    var means = Equipped(loom, yarn, 0.02m).Scaled(2m);
+
+    Assert.Equal([Stock.Of(loom.Id, Quantity.Of(2m, Loom))], means.Instruments);
+    Assert.Equal([Stock.Of(yarn.Id, Quantity.Of(20m, Pound))], means.Subjects);
+    Assert.Throws<DomainException>(() => MeansOfProduction.None(ProductiveForm.Handicraft).Scaled(-1m));
+  }
+
+  [Fact]
+  public void Scaling_changes_neither_the_form_nor_the_wear()
+  {
+    var (_, loom, yarn) = Weaving();
+
+    var means = Equipped(loom, yarn, 0.02m).Scaled(0.5m);
+
+    Assert.Equal(ProductiveForm.Manufacture, means.Form);
+    Assert.Equal(0.02m, means.Wear);
+  }
+
+  [Fact]
   public void Empty_hands_transfer_nothing_and_advance_nothing()
   {
     var (register, _, _) = Weaving();

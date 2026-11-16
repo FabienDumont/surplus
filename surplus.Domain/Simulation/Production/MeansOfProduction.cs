@@ -112,6 +112,45 @@ public sealed record MeansOfProduction
     return register.ValueOf(_subjects) + register.ValueOf(_instruments) * Wear;
   }
 
+  /// <summary>
+  /// The same means for more hands or fewer: every instrument and every
+  /// material in proportion. The technical composition of a branch is a ratio
+  /// of dead labour to living, so hands cannot be added without the looms and
+  /// the yarn to set them at, and hands turned out leave their looms standing.
+  /// </summary>
+  public MeansOfProduction Scaled(decimal factor)
+  {
+    if (factor < 0m)
+    {
+      throw new DomainException("Means of production cannot be scaled below nothing.");
+    }
+
+    return new MeansOfProduction(
+      Form,
+      [.. _instruments.Select(instrument => Stock.Of(instrument.Commodity, instrument.Quantity * factor))],
+      [.. _subjects.Select(subject => Stock.Of(subject.Commodity, subject.Quantity * factor))],
+      Wear
+    );
+  }
+
+  /// <summary>
+  /// What one period physically uses up: the material entire, and the worn
+  /// share of the instruments. This is the bodily twin of
+  /// <see cref="ValueTransferred" />. The value that passes into the product is
+  /// the value of exactly these use-values, and they have to be replaced in
+  /// kind out of the social product if production is to begin again on the
+  /// same scale tomorrow.
+  /// </summary>
+  public IReadOnlyList<Stock> ConsumedInOnePeriod()
+  {
+    return
+    [
+      .. _subjects
+        .Concat(_instruments.Select(instrument => Stock.Of(instrument.Commodity, instrument.Quantity * Wear)))
+        .Where(stock => !stock.IsExhausted)
+    ];
+  }
+
   public bool Equals(MeansOfProduction? other)
   {
     return other is not null

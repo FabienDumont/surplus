@@ -1,5 +1,7 @@
 using Surplus.Domain.SharedKernel;
+using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Politics;
+using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
 
 namespace Surplus.Domain.Simulation.Countries;
@@ -50,18 +52,26 @@ public sealed class Country
 
   public bool IsPlayed => Control is CountryControl.Player;
 
+  /// <summary>
+  /// Everything the country has laid up. It is national and not provincial:
+  /// every province produces into it and draws on it, as though there were no
+  /// distance inside a border, and nothing crosses a border either way.
+  /// </summary>
+  public Store Store { get; private set; }
+
   #endregion
 
   #region Ctors
 
   private Country(
-    CountryId id, string name, CountryControl control, Government government, List<Province> provinces)
+    CountryId id, string name, CountryControl control, Government government, List<Province> provinces, Store store)
   {
     Id = id;
     Name = name;
     Control = control;
     Government = government;
     _provinces = provinces;
+    Store = store;
   }
 
   #endregion
@@ -77,7 +87,7 @@ public sealed class Country
       throw new DomainException("A country must have a name.");
     }
 
-    return new Country(CountryId.New(), name.Trim(), control, government, [firstProvince]);
+    return new Country(CountryId.New(), name.Trim(), control, government, [firstProvince], Store.Empty);
   }
 
   /// <summary>
@@ -86,9 +96,10 @@ public sealed class Country
   /// was saved.
   /// </summary>
   public static Country Load(
-    CountryId id, string name, CountryControl control, Government government, IEnumerable<Province> provinces)
+    CountryId id, string name, CountryControl control, Government government, IEnumerable<Province> provinces,
+    Store store)
   {
-    return new Country(id, name, control, government, [.. provinces]);
+    return new Country(id, name, control, government, [.. provinces], store);
   }
 
   public bool Governs(ProvinceId provinceId)
@@ -161,6 +172,159 @@ public sealed class Country
   public void Adopt(Ideology ideology)
   {
     Government = Government.Adopting(ideology);
+  }
+
+  /// <summary>
+  /// Puts something in the store that no day of the simulation produced: the
+  /// granaries and warehouses a scenario opens on, the fruit of labour done
+  /// before the game began.
+  /// </summary>
+  public void LayUp(Stock stock)
+  {
+    Store = Store.LaidUp(stock);
+  }
+
+  /// <summary>
+  /// Works every branch of every province for one day, out of the store and
+  /// into it. A branch works only if the store can replace in kind everything
+  /// it uses up, its whole material and the worn share of its instruments.
+  /// Otherwise it stands idle and takes nothing. What is made today is laid up
+  /// only once every branch has had its turn: a product has to be finished
+  /// before it can enter another process as material.
+  /// </summary>
+  public DayOfProduction WorkOneDay(CommodityRegister register)
+  {
+    List<Yield> yields = [];
+    List<IdleBranch> idle = [];
+
+    foreach (var province in _provinces)
+    {
+      foreach (var branch in province.Branches)
+      {
+        var consumed = branch.Means.ConsumedInOnePeriod();
+
+        if (!Store.Holds(consumed))
+        {
+          idle.Add(new IdleBranch(province.Id, branch.Produces));
+
+          continue;
+        }
+
+        var yield = branch.Work(register);
+
+        Store = Store.Drawn(consumed);
+        yields.Add(yield);
+      }
+    }
+
+    Store = Store.LaidUp(yields.Select(yield => yield.Product));
+
+    return new DayOfProduction(yields, idle);
+  }
+
+  /// <summary>
+  /// Sets a branch going by a known technique. Its instruments have to exist
+  /// before it can: they are taken from the store, where only past labour in
+  /// Department I can have put them. That is accumulation in its plainest
+  /// form, yesterday's surplus product become today's means of production.
+  /// </summary>
+  public void OpenBranch(
+    ProvinceId province, Technique technique, SocialClass workforce, int hands, LaborTime workingDay,
+    LaborTime necessaryLabor)
+  {
+    var where = Governed(province);
+    var means = technique.EquipFor(hands);
+    var branch = Branch.Open(
+      technique.Produces, means, workforce, hands, workingDay, necessaryLabor, technique.OutputPerHour);
+
+    RequireInStore(means.Instruments, hands);
+
+    where.Open(branch);
+    Store = Store.Drawn(means.Instruments);
+  }
+
+  /// <summary>Shuts a branch down. Its instruments are scrapped where they stand; nothing returns to the store.</summary>
+  public void CloseBranch(ProvinceId province, CommodityId commodity)
+  {
+    Governed(province).Close(commodity);
+  }
+
+  /// <summary>Takes on hands, and takes out of the store the instruments to set them at.</summary>
+  public void Employ(ProvinceId province, CommodityId commodity, int hands)
+  {
+    var where = Governed(province);
+    var branch = BranchWorking(where, commodity);
+    var instruments = branch.Means.Scaled((decimal)Math.Max(hands, 0) / branch.Hands).Instruments;
+
+    RequireInStore(instruments, hands);
+
+    where.Employ(commodity, hands);
+    Store = Store.Drawn(instruments);
+  }
+
+  /// <summary>Turns hands out. The instruments they worked at are scrapped, not returned to the store.</summary>
+  public void LayOff(ProvinceId province, CommodityId commodity, int hands)
+  {
+    Governed(province).LayOff(commodity, hands);
+  }
+
+  /// <summary>
+  /// Puts a branch to work by another technique. The new instruments are
+  /// installed whole, out of the store, and the old ones are scrapped: a
+  /// hand-loom is not traded in against a power-loom, it is simply made
+  /// worthless by it.
+  /// </summary>
+  public void Reequip(ProvinceId province, CommodityId commodity, Technique technique)
+  {
+    if (technique.Produces != commodity)
+    {
+      throw new DomainException($"{technique.Name} does not produce what that branch produces.");
+    }
+
+    var where = Governed(province);
+    var branch = BranchWorking(where, commodity);
+    var means = technique.EquipFor(branch.Hands);
+
+    RequireInStore(means.Instruments, branch.Hands);
+
+    where.Reequip(commodity, means, technique.OutputPerHour);
+    Store = Store.Drawn(means.Instruments);
+  }
+
+  private Province Governed(ProvinceId province)
+  {
+    return _provinces.SingleOrDefault(candidate => candidate.Id == province) ??
+           throw new DomainException($"{Name} does not govern that province.");
+  }
+
+  private static Branch BranchWorking(Province province, CommodityId commodity)
+  {
+    return province.Branches.SingleOrDefault(branch => branch.Produces == commodity) ??
+           throw new DomainException($"Nothing of that kind is produced in {province.Name}.");
+  }
+
+  /// <summary>
+  /// Refuses a change the store cannot furnish the instruments for, naming what
+  /// is lacking in its own unit. The country keeps no register of names, and a
+  /// shortfall of so many machines is what the player needs to know anyway.
+  /// </summary>
+  private void RequireInStore(IReadOnlyList<Stock> instruments, int hands)
+  {
+    if (Store.Holds(instruments))
+    {
+      return;
+    }
+
+    var lacking = instruments
+      .GroupBy(stock => stock.Commodity)
+      .Select(group => (Unit: group.First().Quantity.Unit, Needed: group.Sum(stock => stock.Quantity.Amount),
+                        Held: Store.AmountOf(group.Key)))
+      .Where(need => need.Needed > need.Held)
+      .Select(need => Quantity.Of(need.Needed - need.Held, need.Unit).ToString());
+
+    throw new DomainException(
+      $"There is not enough in store to equip {hands} {(hands == 1 ? "hand" : "hands")}: " +
+      $"{string.Join(", ", lacking)} lacking.");
   }
 
   public void GiveToPlayer()

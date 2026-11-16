@@ -8,6 +8,16 @@ namespace Surplus.Domain.GameEngine;
 /// </summary>
 public readonly record struct GameDate(DateOnly Date) : IComparable<GameDate>
 {
+  #region Properties
+
+  /// <summary>
+  /// Get-only: the calendar is not set back by copying a date with another
+  /// day in it. A later date is reached by <see cref="NextDay" /> or not at all.
+  /// </summary>
+  public DateOnly Date { get; } = Date;
+
+  #endregion
+
   #region Methods
 
   public static GameDate Of(int year, int month, int day)

@@ -19,4 +19,16 @@
     <Using Include="Xunit"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\surplus.Application\surplus.Application.csproj"/>
+    <ProjectReference Include="..\surplus.Domain\surplus.Domain.csproj"/>
+    <ProjectReference Include="..\surplus.Testing\surplus.Testing.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\surplus.Domain\SharedKernel\StrongIds\StrongIds.GlobalUsings.cs">
+      <Link>StrongIds.GlobalUsings.cs</Link>
+    </Compile>
+  </ItemGroup>
+
 </Project>

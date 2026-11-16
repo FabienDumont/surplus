@@ -1,3 +1,4 @@
+using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Politics;
 
@@ -17,6 +18,7 @@ public sealed class CountryBuilder
   private CountryId _id = CountryId.New();
   private string _name = "France";
   private List<Province> _provinces = [new ProvinceBuilder().Build()];
+  private Store _store = Store.Empty;
 
   #endregion
 
@@ -63,9 +65,17 @@ public sealed class CountryBuilder
     return this;
   }
 
+  /// <summary>Stocks the country's store with exactly these heaps.</summary>
+  public CountryBuilder Holding(params Stock[] stocks)
+  {
+    _store = Store.Of(stocks);
+
+    return this;
+  }
+
   public Country Build()
   {
-    return Country.Load(_id, _name, _control, _government, _provinces);
+    return Country.Load(_id, _name, _control, _government, _provinces, _store);
   }
 
   #endregion

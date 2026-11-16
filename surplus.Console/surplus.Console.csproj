@@ -8,4 +8,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\surplus.Application\surplus.Application.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\surplus.Domain\SharedKernel\StrongIds\StrongIds.GlobalUsings.cs">
+      <Link>StrongIds.GlobalUsings.cs</Link>
+    </Compile>
+  </ItemGroup>
+
 </Project>

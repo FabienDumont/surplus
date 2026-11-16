@@ -11,6 +11,13 @@ public interface IStrongIdTag;
 /// <typeparam name="TTag">Marker type associating the identifier with one aggregate.</typeparam>
 public readonly record struct Id<TTag>(Guid Value) where TTag : IStrongIdTag
 {
+  #region Properties
+
+  /// <summary>Get-only: an identity, once given, is never reassigned, not even through a <c>with</c>.</summary>
+  public Guid Value { get; } = Value;
+
+  #endregion
+
   #region Methods
 
   public static Id<TTag> New()

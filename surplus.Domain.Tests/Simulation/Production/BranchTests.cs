@@ -97,6 +97,34 @@ public class BranchTests
   }
 
   [Fact]
+  public void Hands_taken_on_bring_their_share_of_the_means_with_them()
+  {
+    var (_, linen, loom, yarn) = Weaving();
+    var province = new ProvinceBuilder().Working(Weavers(linen, loom, yarn)).Build();
+
+    province.Employ(linen.Id, 300);
+
+    var branch = Assert.Single(province.Branches);
+    Assert.Equal(900, branch.Hands);
+    Assert.Equal([Stock.Of(loom.Id, Quantity.Of(90m, Loom))], branch.Means.Instruments);
+    Assert.Equal([Stock.Of(yarn.Id, Quantity.Of(180m, Pound))], branch.Means.Subjects);
+  }
+
+  [Fact]
+  public void Hands_turned_off_take_their_share_of_the_means_with_them()
+  {
+    var (_, linen, loom, yarn) = Weaving();
+    var province = new ProvinceBuilder().Working(Weavers(linen, loom, yarn)).Build();
+
+    province.LayOff(linen.Id, 450);
+
+    var branch = Assert.Single(province.Branches);
+    Assert.Equal(150, branch.Hands);
+    Assert.Equal([Stock.Of(loom.Id, Quantity.Of(15m, Loom))], branch.Means.Instruments);
+    Assert.Equal([Stock.Of(yarn.Id, Quantity.Of(30m, Pound))], branch.Means.Subjects);
+  }
+
+  [Fact]
   public void Re_equipping_and_the_rise_in_productivity_it_is_made_for_are_one_act()
   {
     var (register, linen, _, _) = Weaving();
@@ -182,6 +210,16 @@ public class BranchTests
       workingDay ?? LaborTime.FromHours(12m), necessaryLabor ?? LaborTime.FromHours(6m),
       outputPerHour ?? Quantity.Of(2m, Yard)
     );
+  }
+
+  /// <summary>Six hundred serfs at sixty looms, working up 120 pounds of yarn a day.</summary>
+  private static Branch Weavers(Commodity linen, Commodity loom, Commodity yarn)
+  {
+    return new BranchBuilder().Producing(linen.Id).WorkedBy(SocialClass.Serfs, 600)
+      .WithMeans(MeansOfProduction.SetInMotion(
+        ProductiveForm.Manufacture, 0.01m, [Stock.Of(loom.Id, Quantity.Of(60m, Loom))],
+        [Stock.Of(yarn.Id, Quantity.Of(120m, Pound))]))
+      .Build();
   }
 
   /// <summary>Linen, the loom that weaves it, and the yarn it is woven from.</summary>

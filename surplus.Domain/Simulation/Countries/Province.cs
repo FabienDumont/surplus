@@ -169,6 +169,12 @@ public sealed class Province
     }
   }
 
+  /// <summary>Puts new means into the hands of the branch working this commodity.</summary>
+  public void Reequip(CommodityId commodity, MeansOfProduction means, Quantity outputPerHour)
+  {
+    BranchWorking(commodity).Reequip(means, outputPerHour);
+  }
+
   /// <summary>
   /// Works every branch for one period. The yields are individual: what each
   /// branch's own labour cost it. What any of it is worth is settled elsewhere,
