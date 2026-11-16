@@ -1,6 +1,7 @@
 using System.Globalization;
 using Surplus.Application;
 using Surplus.Application.Reporting;
+using Surplus.Application.Saving;
 using Surplus.Application.Settings;
 using Surplus.Domain.SharedKernel;
 using Surplus.Domain.Simulation.Commodities;
@@ -42,13 +43,15 @@ public sealed class Terminal
     ["layoff"] = "layoff takes a province, a commodity and hands, e.g. layoff 1 2 1000.",
     ["reequip"] = "reequip takes a province, a commodity and a technique, e.g. reequip 1 2 5.",
     ["day"] = "day takes a province, a commodity and hours, e.g. day 1 2 10.",
+    ["save"] = "save takes a path to write the game to, e.g. save 1836.json.",
+    ["load"] = "load takes a path to read a game from, e.g. load 1836.json.",
     ["war"] = "war takes a country's number from status, e.g. war 2.",
     ["peace"] = "peace takes a war's number from wars and its terms: white, annex, or cede followed by province names, e.g. peace 1 cede Carolina."
   };
 
   private readonly TextReader _input;
   private readonly TextWriter _output;
-  private readonly Session _session;
+  private Session _session;
   private readonly IPreferenceStore _store;
   private Passage? _lastPassage;
   private UserPreferences _preferences;
@@ -148,6 +151,12 @@ public sealed class Terminal
         break;
       case "units":
         Units(arguments);
+        break;
+      case "save":
+        Save(arguments);
+        break;
+      case "load":
+        Load(arguments);
         break;
       case "enact":
       case "repeal":
@@ -557,6 +566,61 @@ public sealed class Terminal
     StoresOf(country);
   }
 
+  /// <summary>Writes the game to a file, overwriting it. A path may hold spaces.</summary>
+  private void Save(string[] arguments)
+  {
+    if (arguments.Length == 0)
+    {
+      _output.WriteLine(Usage["save"]);
+
+      return;
+    }
+
+    var path = string.Join(' ', arguments);
+
+    try
+    {
+      File.WriteAllText(path, SaveFile.Write(_session));
+      _output.WriteLine($"The game is saved to {path}.");
+    }
+    catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+    {
+      _output.WriteLine($"The game could not be saved to {path}: {failure.Message}");
+    }
+  }
+
+  /// <summary>
+  /// Replaces the game with the one in a file. A file missing or unreadable
+  /// leaves the game as it was.
+  /// </summary>
+  private void Load(string[] arguments)
+  {
+    if (arguments.Length == 0)
+    {
+      _output.WriteLine(Usage["load"]);
+
+      return;
+    }
+
+    var path = string.Join(' ', arguments);
+    string json;
+
+    try
+    {
+      json = File.ReadAllText(path);
+    }
+    catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+    {
+      _output.WriteLine($"No game could be read from {path}: {failure.Message}");
+
+      return;
+    }
+
+    _session = SaveFile.Read(json);
+    _lastPassage = null;
+    Status();
+  }
+
   private void Units(string[] arguments)
   {
     if (arguments.Length == 0)
@@ -777,6 +841,7 @@ public sealed class Terminal
     _output.WriteLine("  laws                     the laws in force and the rest");
     _output.WriteLine("  country <country#>       another country's provinces and stores");
     _output.WriteLine("  units [metric|imperial]  show or set the units quantities are shown in");
+    _output.WriteLine("  save <path> / load <path>  write the game to a file, or replace it with one");
     _output.WriteLine("Economy");
     _output.WriteLine("  open <province#> <technique#> <class> <hands> [hours]  open a branch (12 h a day unless told)");
     _output.WriteLine("  close <province#> <commodity#>                         close a branch");

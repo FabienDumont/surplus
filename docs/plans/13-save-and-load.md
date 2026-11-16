@@ -7,6 +7,26 @@ Let a game outlive the process. The domain was built for this from the start: ev
 After this plan a session can be written to a JSON string and read back into a session that behaves
 identically from then on.
 
+## As built
+
+Where the build departs from the text below:
+
+- **The commodity register is written in its own order, not sorted.** Circulation, the AI and the
+  console's numbering all walk the register, so sorting it would change what a game read back does,
+  and break the second round-trip test. Only store contents are written sorted.
+- **One snapshot record per file**, in `Saving/Snapshots/`, as the house style requires.
+  `Snapshotting` holds the mapping both ways.
+- **The basket is rebuilt with `Subsistence.Load`**, which already existed. A world from the test
+  builder may have an empty basket, which `Subsistence.Of` refuses. No other domain type needed a new
+  `Load`.
+- **Only declarations and treaties are saved among the waiting occurrences**, the only kinds ever left
+  waiting. Any other kind is refused when saving, and an unknown kind when reading, rather than
+  silently lost.
+- **Missing fields are caught by the serialiser** (`RespectRequiredConstructorParameters`,
+  `RespectNullableAnnotations`). Anything the domain then refuses is reported as *"That save file
+  holds something this game cannot rebuild: …"*.
+- **The console paths may hold spaces.** `save` and `load` take the rest of the line as the path.
+
 ## Read first
 
 - `docs/plans/README.md`, "Determinism"

@@ -23,17 +23,23 @@ written. Execute them **in order**: each one builds on the types the previous on
 | 11 | [Known techniques](11-known-techniques.md)             | Each country knows some techniques and finds out others by working |
 | 12 | [AI](12-ai.md)                                         | AI countries provision themselves and end the wars they win    |
 | 13 | [Save and load](13-save-and-load.md)                   | A game survives the process                                    |
+| 14 | [Weak spots](14-weak-spots.md)                         | Fixes for what building 05–12 showed to be wrong or brittle; save version 2 |
+| 15 | [Regimes and the verdict](15-regimes-and-verdict.md)   | Design only, no code: what the game is for, and what bounds the player's politics |
 
 After plan 04 the game runs, and after plan 07 it can be played. Plans 05 to 13 each add one thing
-to a running game.
+to a running game. Plan 14 adds nothing new and fixes what the others left fragile.
 
 ### Planned, not yet written
 
-- **Goals and pressure.** Even with orders, a scenario that feeds itself at rest gives the player no
+- **Goals and pressure.** Since plan 09 Britain piles up about a million tonnes of corn a year while
+  its unemployed starve, and the played country already knows every technique, so development is
+  something only Russia shows. Even with orders, a scenario that feeds itself at rest gives the player no
   reason to act. Two things are missing. One is objectives or a score, read off the model and not
   bolted on: accumulation, the rate of surplus-value, the share of the world's production. The other
   is a scenario that is not balanced at rest, for example a Britain whose people outgrow its corn
   unless it acts. Design this after plan 07, once orders exist to answer the pressure with.
+  **Designed in [plan 15](15-regimes-and-verdict.md)**: each regime is judged yearly by its own
+  ideology's profile, and political change is gated by the weight of classes. Plans 16–20 build it.
 - **A real interface.** A full-screen terminal interface or a small web page instead of scrolling
   text, once there is something worth playing in it.
 - **Earlier start dates.** Scenarios set in the 1st or 11th century, with their own commodities,
