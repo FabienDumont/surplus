@@ -8,6 +8,7 @@ using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Politics;
 using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
+using Surplus.Domain.Simulation.Warfare;
 
 namespace Surplus.Application;
 
@@ -167,6 +168,16 @@ public sealed class Session
   public void FixTheWorkingDay(ProvinceId province, CommodityId commodity, LaborTime workingDay)
   {
     Played().FixTheWorkingDay(province, commodity, workingDay);
+  }
+
+  public War DeclareWarOn(CountryId defender)
+  {
+    return World.DeclareWar(Played().Id, defender);
+  }
+
+  public void MakePeace(WarId war, Peace peace)
+  {
+    World.MakePeace(war, Played().Id, peace);
   }
 
   private Country Played()

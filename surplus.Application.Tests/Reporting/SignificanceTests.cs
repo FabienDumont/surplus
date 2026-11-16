@@ -47,6 +47,33 @@ public class SignificanceTests
   }
 
   [Fact]
+  public void A_war_declared_on_the_player_is_urgent_and_one_they_declared_is_not()
+  {
+    var world = Kingdom();
+
+    Assert.Equal(Importance.Urgent, Significance.Of(new WarWasDeclared("Russia", "United Kingdom"), world));
+    Assert.Equal(Importance.Notable, Significance.Of(new WarWasDeclared("United Kingdom", "Russia"), world));
+    Assert.Equal(Importance.Notable, Significance.Of(new WarWasDeclared("Russia", "United States"), world));
+  }
+
+  [Fact]
+  public void A_peace_forced_on_the_player_is_urgent_and_one_they_made_is_not()
+  {
+    var world = Kingdom();
+
+    Assert.Equal(
+      Importance.Urgent, Significance.Of(new PeaceWasMade("Russia", "United Kingdom", "Kent is ceded to Russia"), world));
+    Assert.Equal(
+      Importance.Notable, Significance.Of(new PeaceWasMade("United Kingdom", "Russia", "nothing changes hands"), world));
+  }
+
+  [Fact]
+  public void The_front_is_routine()
+  {
+    Assert.Equal(Importance.Routine, Significance.Of(new TheFrontMoved("Russia", "United Kingdom", -4), Kingdom()));
+  }
+
+  [Fact]
   public void An_occurrence_nobody_has_classified_is_shown()
   {
     Assert.Equal(Importance.Notable, Significance.Of(new CometSighted(), Kingdom()));

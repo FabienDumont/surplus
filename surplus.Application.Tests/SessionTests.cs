@@ -6,6 +6,7 @@ using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Politics;
 using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
+using Surplus.Domain.Simulation.Warfare;
 using Surplus.Testing;
 
 namespace Surplus.Application.Tests;
@@ -198,6 +199,20 @@ public class SessionTests
   }
 
   [Fact]
+  public void The_player_declares_war_and_makes_peace()
+  {
+    var session = InEighteenThirtySix();
+    var russia = session.World.Countries.Single(country => country.Name == "Russia");
+
+    var war = session.DeclareWarOn(russia.Id);
+    session.MakePeace(war.Id, Peace.White());
+
+    Assert.Equal(Kingdom(session).Id, war.Aggressor);
+    Assert.Equal(russia.Id, war.Defender);
+    Assert.True(war.IsOver);
+  }
+
+  [Fact]
   public void A_player_whose_state_is_no_more_can_order_nothing()
   {
     var session = Begun();
@@ -215,7 +230,9 @@ public class SessionTests
       () => session.Employ(province, commodity, 10),
       () => session.LayOff(province, commodity, 10),
       () => session.Reequip(province, commodity, "Hand loom"),
-      () => session.FixTheWorkingDay(province, commodity, TwelveHours)
+      () => session.FixTheWorkingDay(province, commodity, TwelveHours),
+      () => session.DeclareWarOn(CountryId.New()),
+      () => session.MakePeace(WarId.New(), Peace.White())
     ];
 
     Assert.All(orders, order => Assert.Equal(

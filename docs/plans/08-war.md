@@ -130,15 +130,19 @@ The war's occurrences come with their own types, so that `Significance` can tell
   Kingdom and the United States have made peace: Carolina is ceded to the United Kingdom."* The
   same applies to `MakePeace`.
 
-Keep these pending occurrences in `World` and emit them first in the next `Elapse`. Plan 13 must then
+Keep these pending occurrences in `World` (`World.Pending`, and a parameter of `World.Load`) and emit
+them first in the next `Elapse`. Plan 13 must then
 save them; say so in the report.
 
 Extend the table in `Significance`:
 
 | Occurrence       | Importance                                   |
 |------------------|----------------------------------------------|
-| `WarWasDeclared` | Urgent if played is a belligerent, otherwise Notable |
-| `PeaceWasMade`   | Urgent if played is a party, otherwise Notable |
+| `WarWasDeclared` | Urgent if the played country is the defender, otherwise Notable |
+| `PeaceWasMade`   | Urgent if the played country is the loser, otherwise Notable |
+
+What the player did needs no stopping for; what was done to them does. The one who proposed a white
+peace stands as its `Winner`.
 | `TheFrontMoved`  | Routine                                      |
 
 `Digest` adds one line per open war, from the last `TheFrontMoved` of the passage: `War: United

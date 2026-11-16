@@ -100,6 +100,19 @@ public class CountryTests
   }
 
   [Fact]
+  public void A_country_can_arm_everyone_it_does_not_own()
+  {
+    var carolina = new ProvinceBuilder()
+      .WithClasses(ClassPresence.Of(SocialClass.Slaves, 40_000), ClassPresence.Of(SocialClass.SlaveOwners, 1_000)).Build();
+    var newEngland = new ProvinceBuilder()
+      .WithClasses(ClassPresence.Of(SocialClass.Proletariat, 15_000), ClassPresence.Of(SocialClass.Bourgeoisie, 1_000)).Build();
+    var states = new CountryBuilder().WithProvinces(newEngland, carolina).Build();
+
+    Assert.Equal(57_000, states.Population);
+    Assert.Equal(17_000, states.Armable);
+  }
+
+  [Fact]
   public void A_province_cannot_be_annexed_twice_by_the_same_country()
   {
     var normandie = new ProvinceBuilder().WithName("Normandie").Build();

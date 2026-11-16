@@ -61,6 +61,12 @@ public sealed class Country
 
   public int Population => _provinces.Sum(province => province.Population);
 
+  /// <summary>
+  /// Those this country could put under arms, read off its class structure
+  /// province by province. A slave society counts more heads than it can arm.
+  /// </summary>
+  public int Armable => _provinces.Sum(province => province.Composition.Armable);
+
   /// <summary>The provinces this country governs, never empty.</summary>
   public IReadOnlyList<Province> Provinces => _provinces;
 
@@ -133,6 +139,20 @@ public sealed class Country
   }
 
   /// <summary>Gives a province up, so long as it is not the country's last.</summary>
+  /// <summary>
+  /// Gives up every province at once, the last included. Only an annexation
+  /// does this, and the country does not survive it: it is taken out of the
+  /// world in the same act.
+  /// </summary>
+  internal IReadOnlyList<Province> Surrender()
+  {
+    List<Province> surrendered = [.. _provinces];
+
+    _provinces.Clear();
+
+    return surrendered;
+  }
+
   public Province Cede(ProvinceId provinceId)
   {
     var province = _provinces.SingleOrDefault(candidate => candidate.Id == provinceId) ??

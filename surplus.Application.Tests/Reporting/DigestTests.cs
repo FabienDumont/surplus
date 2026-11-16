@@ -8,6 +8,7 @@ using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
+using Surplus.Domain.Simulation.Warfare;
 using Surplus.Testing;
 using Value = Surplus.Domain.Simulation.Commodities.Value;
 
@@ -149,6 +150,49 @@ public class DigestTests
   }
 
   [Fact]
+  public void Each_open_war_is_summed_up_once_where_it_stands_at_the_end()
+  {
+    var (world, kingdom, russia, states) = AtWarWithTwo();
+    world.DeclareWar(kingdom.Id, russia.Id);
+    world.DeclareWar(states.Id, kingdom.Id);
+
+    var digest = Digested(
+      world,
+      [new TheFrontMoved("United Kingdom", "Russia", 2), new TheFrontMoved("United States", "United Kingdom", 0)],
+      [new TheFrontMoved("United Kingdom", "Russia", 4), new TheFrontMoved("United States", "United Kingdom", -3)]);
+
+    Assert.Equal(
+      [
+        "War: United Kingdom on Russia, +4, United Kingdom prevailing.",
+        "War: United States on United Kingdom, -3, United Kingdom prevailing."
+      ],
+      digest.Lines.Where(line => line.StartsWith("War:")));
+  }
+
+  [Fact]
+  public void A_front_that_has_not_moved_has_no_one_prevailing()
+  {
+    var (world, kingdom, russia, _) = AtWarWithTwo();
+    world.DeclareWar(kingdom.Id, russia.Id);
+
+    var digest = Digested(world, [new TheFrontMoved("United Kingdom", "Russia", 0)]);
+
+    Assert.Contains("War: United Kingdom on Russia, 0, neither side prevailing.", digest.Lines);
+  }
+
+  [Fact]
+  public void A_war_ended_during_the_passage_is_told_by_its_peace_not_its_front()
+  {
+    var (world, kingdom, russia, _) = AtWarWithTwo();
+    var war = world.DeclareWar(kingdom.Id, russia.Id);
+    world.MakePeace(war.Id, russia.Id, Peace.White());
+
+    var digest = Digested(world, [new TheFrontMoved("United Kingdom", "Russia", 0)]);
+
+    Assert.DoesNotContain(digest.Lines, line => line.StartsWith("War:"));
+  }
+
+  [Fact]
   public void Without_growth_there_is_no_line_for_it()
   {
     var (world, _) = Kingdom();
@@ -276,6 +320,18 @@ public class DigestTests
       .WithCountries(kingdom).Build();
 
     return (world, kingdom);
+  }
+
+  /// <summary>The played United Kingdom of <see cref="Kingdom" />, with Russia and the United States beside it.</summary>
+  private (World World, Country Kingdom, Country Russia, Country States) AtWarWithTwo()
+  {
+    var (_, kingdom) = Kingdom();
+    var russia = new CountryBuilder().WithName("Russia").Build();
+    var states = new CountryBuilder().WithName("United States").Build();
+    var world = new WorldBuilder().WithRegister(CommodityRegister.Of(_cloth, _corn)).WithSubsistence(Basket())
+      .WithCountries(kingdom, russia, states).Build();
+
+    return (world, kingdom, russia, states);
   }
 
   private Subsistence Basket()

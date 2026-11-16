@@ -59,6 +59,7 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
     lines.AddRange(
       notable.Where(entry => entry.Occurrence is not (CommodityWasRevalued or BranchStoodIdle or PeopleWentWithout))
         .Select(entry => Dated(entry.Date, entry.Occurrence)));
+    lines.AddRange(Fronts(dated.Select(entry => entry.Occurrence).OfType<TheFrontMoved>(), world));
     lines.AddRange(Growth(dated.Select(entry => entry.Occurrence).OfType<PopulationGrew>()));
 
     if (world.Played is { } played)
@@ -115,6 +116,35 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
       .GroupBy(famine => famine.Country)
       .Select(days =>
         $"{days.Key} went short on {Days(days.Count())}; {Number(days.Sum(famine => famine.Deaths))} died.");
+  }
+
+  /// <summary>
+  /// Where each war still being fought stands at the end of the passage. A war
+  /// ended in the meantime is told by its peace, not by its last front.
+  /// </summary>
+  private static IEnumerable<string> Fronts(IEnumerable<TheFrontMoved> fronts, World world)
+  {
+    var open = world.Wars.Where(war => !war.IsOver)
+      .Select(war => (Aggressor: Named(world, war.Aggressor), Defender: Named(world, war.Defender)))
+      .ToHashSet();
+
+    return fronts
+      .GroupBy(front => (front.Aggressor, front.Defender))
+      .Where(war => open.Contains(war.Key))
+      .Select(war => war.Last())
+      .Select(front =>
+        $"War: {front.Aggressor} on {front.Defender}, {front.Momentum.ToString("+#;-#;0", CultureInfo.InvariantCulture)}, " +
+        front.Momentum switch
+        {
+          > 0 => $"{front.Aggressor} prevailing.",
+          < 0 => $"{front.Defender} prevailing.",
+          _ => "neither side prevailing."
+        });
+  }
+
+  private static string Named(World world, CountryId country)
+  {
+    return world.Countries.Single(candidate => candidate.Id == country).Name;
   }
 
   private static IEnumerable<string> Growth(IEnumerable<PopulationGrew> growth)

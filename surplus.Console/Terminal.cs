@@ -8,6 +8,7 @@ using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Politics;
 using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
+using Surplus.Domain.Simulation.Warfare;
 
 namespace Surplus.Console;
 
@@ -39,7 +40,9 @@ public sealed class Terminal
     ["employ"] = "employ takes a province, a commodity and hands, e.g. employ 1 2 1000.",
     ["layoff"] = "layoff takes a province, a commodity and hands, e.g. layoff 1 2 1000.",
     ["reequip"] = "reequip takes a province, a commodity and a technique, e.g. reequip 1 2 5.",
-    ["day"] = "day takes a province, a commodity and hours, e.g. day 1 2 10."
+    ["day"] = "day takes a province, a commodity and hours, e.g. day 1 2 10.",
+    ["war"] = "war takes a country's number from status, e.g. war 2.",
+    ["peace"] = "peace takes a war's number from wars and its terms: white, annex, or cede followed by province names, e.g. peace 1 cede Carolina."
   };
 
   private readonly TextReader _input;
@@ -173,6 +176,15 @@ public sealed class Terminal
       case "day":
         Day(arguments);
         break;
+      case "wars":
+        Wars();
+        break;
+      case "war":
+        DeclareWar(arguments);
+        break;
+      case "peace":
+        MakePeace(arguments);
+        break;
       case "help":
         Help();
         break;
@@ -270,6 +282,116 @@ public sealed class Terminal
         $"{country.Government.Form}, {Number(country.Population)} souls, {country.DominantMode}, " +
         (days is { } kept ? $"{Number(Math.Floor(kept))} days of subsistence in store" : "no one to keep"));
     }
+
+    foreach (var war in OpenWars())
+    {
+      _output.WriteLine($"At war: {Front(war)}");
+    }
+  }
+
+  private void Wars()
+  {
+    var wars = OpenWars();
+
+    if (wars.Count == 0)
+    {
+      _output.WriteLine("No war is being fought.");
+
+      return;
+    }
+
+    for (var index = 0; index < wars.Count; index++)
+    {
+      var war = wars[index];
+
+      _output.WriteLine(
+        $"[{index + 1}] {Front(war)}, {war.ProvincesWithinReach} " +
+        $"{(war.ProvincesWithinReach == 1 ? "province" : "provinces")} within reach" +
+        (Math.Abs(war.Momentum) >= 100 ? ", annexation within reach" : ""));
+    }
+  }
+
+  private void DeclareWar(string[] arguments)
+  {
+    var countries = _session.World.Countries;
+
+    if (arguments.Length != 1 || !Index(arguments[0], countries.Count, out var index))
+    {
+      _output.WriteLine(Usage["war"]);
+
+      return;
+    }
+
+    _session.DeclareWarOn(countries[index].Id);
+    _output.WriteLine($"War is declared on {countries[index].Name}.");
+  }
+
+  private void MakePeace(string[] arguments)
+  {
+    var wars = OpenWars();
+
+    if (arguments.Length < 2 || !Index(arguments[0], wars.Count, out var index) ||
+        PeaceOn(wars[index], arguments[1], arguments[2..]) is not { } peace)
+    {
+      _output.WriteLine(Usage["peace"]);
+
+      return;
+    }
+
+    _session.MakePeace(wars[index].Id, peace);
+    _output.WriteLine($"Peace is made: {peace}.");
+  }
+
+  /// <summary>
+  /// The terms typed after a war's number. Ceded provinces are the one thing
+  /// named by typing, since an enemy's provinces have no number in the player's
+  /// listings; they are matched against the other side's provinces, in any case.
+  /// </summary>
+  private Peace? PeaceOn(War war, string terms, string[] rest)
+  {
+    switch (terms)
+    {
+      case "white" when rest.Length == 0:
+        return Peace.White();
+      case "annex" when rest.Length == 0:
+        return Peace.Annexation();
+      case "cede" when rest.Length > 0:
+        var enemy = _session.World.Country(war.Aggressor == _session.World.Played?.Id ? war.Defender : war.Aggressor);
+        var names = string.Join(' ', rest).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var provinces = names
+          .Select(name => enemy.Provinces.FirstOrDefault(
+            province => string.Equals(province.Name, name, StringComparison.OrdinalIgnoreCase)))
+          .ToList();
+
+        if (provinces.Any(province => province is null))
+        {
+          throw new DomainException($"{enemy.Name} has no province by every name given: {string.Join(", ", names)}.");
+        }
+
+        return Peace.Ceding([.. provinces.Select(province => province!.Id)]);
+      default:
+        return null;
+    }
+  }
+
+  private List<War> OpenWars()
+  {
+    return [.. _session.World.Wars.Where(war => !war.IsOver)];
+  }
+
+  /// <summary>Who is fighting whom, and who is ahead.</summary>
+  private string Front(War war)
+  {
+    var aggressor = _session.World.Country(war.Aggressor).Name;
+    var defender = _session.World.Country(war.Defender).Name;
+    var prevailing = war.Momentum switch
+    {
+      > 0 => $"{aggressor} prevailing",
+      < 0 => $"{defender} prevailing",
+      _ => "neither side prevailing"
+    };
+
+    return $"{aggressor} on {defender}, {war.Momentum.ToString("+#;-#;0", CultureInfo.InvariantCulture)}, {prevailing}";
   }
 
   private void ProvincesOf(Country? country)
@@ -599,6 +721,12 @@ public sealed class Terminal
     _output.WriteLine("  enact <law> / repeal <law>");
     _output.WriteLine("  form <governmentForm>    e.g. form Republic");
     _output.WriteLine("  adopt <ideology>         e.g. adopt Liberalism");
+    _output.WriteLine("War");
+    _output.WriteLine("  wars                     the wars being fought, numbered, and what each has put within reach");
+    _output.WriteLine("  war <country#>           declare war");
+    _output.WriteLine("  peace <war#> white       stop, and take nothing");
+    _output.WriteLine("  peace <war#> cede <province name>[, <province name>...]");
+    _output.WriteLine("  peace <war#> annex       swallow the enemy whole");
     _output.WriteLine("help, quit");
   }
 

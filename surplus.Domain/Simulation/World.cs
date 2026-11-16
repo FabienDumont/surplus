@@ -32,6 +32,14 @@ public sealed class World
   private static readonly decimal ReportedMovement = 0.01m;
 
   private readonly List<Country> _countries;
+
+  /// <summary>
+  /// What was done between two days, by declaration or treaty, and is told in
+  /// the report of the next one. A war is declared on a stopped clock, but it
+  /// belongs to the chronicle of the day it begins.
+  /// </summary>
+  private readonly List<Occurrence> _pending;
+
   private readonly List<Technique> _techniques;
   private readonly List<War> _wars;
 
@@ -50,7 +58,11 @@ public sealed class World
 
   public IReadOnlyList<Country> Countries => _countries;
 
+  /// <summary>Every war ever declared, concluded ones included as a record.</summary>
   public IReadOnlyList<War> Wars => _wars;
+
+  /// <summary>Declarations and treaties made since the last day, to be told in the next.</summary>
+  public IReadOnlyList<Occurrence> Pending => _pending;
 
   /// <summary>
   /// What every head takes out of its country's store each day, the same for
@@ -67,13 +79,14 @@ public sealed class World
 
   private World(
     CommodityRegister register, List<Technique> techniques, Subsistence subsistence, List<Country> countries,
-    List<War> wars)
+    List<War> wars, List<Occurrence> pending)
   {
     Register = register;
     _techniques = techniques;
     Subsistence = subsistence;
     _countries = countries;
     _wars = wars;
+    _pending = pending;
   }
 
   #endregion
@@ -130,7 +143,7 @@ public sealed class World
 
     RejectUnfitBasket(register, subsistence);
 
-    return new World(register, catalogue, subsistence, assembled, []);
+    return new World(register, catalogue, subsistence, assembled, [], []);
   }
 
   private static void RejectUnfitBasket(CommodityRegister register, Subsistence subsistence)
@@ -200,9 +213,9 @@ public sealed class World
   /// </summary>
   public static World Load(
     CommodityRegister register, IEnumerable<Technique> techniques, Subsistence subsistence,
-    IEnumerable<Country> countries, IEnumerable<War> wars)
+    IEnumerable<Country> countries, IEnumerable<War> wars, IEnumerable<Occurrence> pending)
   {
-    return new World(register, [.. techniques], subsistence, [.. countries], [.. wars]);
+    return new World(register, [.. techniques], subsistence, [.. countries], [.. wars], [.. pending]);
   }
 
   public Technique Technique(string name)
@@ -245,17 +258,160 @@ public sealed class World
     Country(country).OpenBranch(province, technique, workforce, hands, workingDay, Lesser(CostOfSubsistence(), workingDay));
   }
 
+  /// <summary>The wars a country is fighting now; concluded ones are left out.</summary>
+  public IReadOnlyList<War> WarsOf(CountryId country)
+  {
+    return [.. _wars.Where(war => !war.IsOver && (war.Aggressor == country || war.Defender == country))];
+  }
+
+  /// <summary>
+  /// Opens a war between two states of the world. A state already at war with
+  /// another is not at war with it twice: the war that exists is the one to
+  /// win or end.
+  /// </summary>
+  public War DeclareWar(CountryId aggressor, CountryId defender)
+  {
+    var attacking = Country(aggressor);
+    var attacked = Country(defender);
+
+    if (WarsOf(aggressor).Any(war => war.Aggressor == defender || war.Defender == defender))
+    {
+      throw new DomainException($"{attacking.Name} and {attacked.Name} are already at war.");
+    }
+
+    var war = War.Declare(aggressor, defender);
+
+    _wars.Add(war);
+    _pending.Add(new WarWasDeclared(attacking.Name, attacked.Name));
+
+    return war;
+  }
+
+  /// <summary>
+  /// Ends a war on the terms one of its belligerents proposes, and applies
+  /// them. Everything is checked before anything is changed, so a peace refused
+  /// leaves the world exactly as it was. Either side may simply stop, but only
+  /// the side that is prevailing can take anything, and it takes no more than
+  /// the fighting earned.
+  /// </summary>
+  public void MakePeace(WarId warId, CountryId proposer, Peace peace)
+  {
+    var war = _wars.SingleOrDefault(candidate => candidate.Id == warId) ??
+              throw new DomainException("No such war has been declared.");
+
+    if (war.IsOver)
+    {
+      throw new DomainException("This war has already been brought to an end.");
+    }
+
+    if (proposer != war.Aggressor && proposer != war.Defender)
+    {
+      throw new DomainException("Only those who fight a war can end it.");
+    }
+
+    var proposing = Country(proposer);
+    var other = Country(proposer == war.Aggressor ? war.Defender : war.Aggressor);
+
+    if (peace.Terms is not PeaceTerms.White && war.Prevailing != proposer)
+    {
+      throw new DomainException($"{proposing.Name} is not prevailing, and only the side that is can dictate terms.");
+    }
+
+    if (peace.Terms is PeaceTerms.Cession)
+    {
+      RejectUnfitCession(other, peace);
+    }
+
+    war.ConcludeWith(peace);
+
+    // From here on nothing may refuse: the treaty is signed.
+    switch (peace.Terms)
+    {
+      case PeaceTerms.Cession:
+        var ceded = peace.Ceded.Select(other.Cede).ToList();
+
+        foreach (var province in ceded)
+        {
+          proposing.Annex(province);
+        }
+
+        _pending.Add(new PeaceWasMade(proposing.Name, other.Name, Ceding(ceded, proposing)));
+        break;
+      case PeaceTerms.Annexation:
+        Swallow(proposing, other);
+        break;
+      default:
+        _pending.Add(new PeaceWasMade(proposing.Name, other.Name, "nothing changes hands"));
+        break;
+    }
+  }
+
+  private static void RejectUnfitCession(Country loser, Peace peace)
+  {
+    if (peace.Ceded.Any(province => !loser.Governs(province)))
+    {
+      throw new DomainException($"{loser.Name} does not govern every province that peace would cede.");
+    }
+
+    if (peace.Ceded.Count >= loser.Provinces.Count)
+    {
+      throw new DomainException(
+        $"A cession cannot take the last of {loser.Name}'s provinces; only an annexation swallows a state whole.");
+    }
+  }
+
+  private static string Ceding(List<Province> ceded, Country winner)
+  {
+    var names = ceded.Select(province => province.Name).ToList();
+    var listed = names.Count == 1 ? names[0] : $"{string.Join(", ", names[..^1])} and {names[^1]}";
+
+    return $"{listed} {(names.Count == 1 ? "is" : "are")} ceded to {winner.Name}";
+  }
+
+  /// <summary>
+  /// The loser ceases to exist. Its territory and its stores pass to the
+  /// victor, and every other war it was fighting ends with it, since there is
+  /// no one left to fight it.
+  /// </summary>
+  private void Swallow(Country winner, Country loser)
+  {
+    foreach (var province in loser.Surrender())
+    {
+      winner.Annex(province);
+    }
+
+    foreach (var stock in loser.Store.Stocks)
+    {
+      winner.LayUp(stock);
+    }
+
+    _countries.Remove(loser);
+    _pending.Add(new PeaceWasMade(winner.Name, loser.Name, $"{loser.Name} is annexed by {winner.Name}"));
+
+    foreach (var war in WarsOf(loser.Id))
+    {
+      var survivor = Country(war.Aggressor == loser.Id ? war.Defender : war.Aggressor);
+
+      war.ConcludeWith(Peace.White());
+      _pending.Add(new PeaceWasMade(survivor.Name, loser.Name, $"{loser.Name} is no more"));
+    }
+  }
+
   /// <summary>
   /// Lets one day pass for every country in the world, and tells what came of
   /// it. Every country works first; only then is what the day's production
   /// cost settled into the value of each commodity, across all of them at once.
   /// The new values set what keeping a hand costs. Then everyone takes their
   /// basket out of the store, and those who could not die of it. On the first
-  /// of the month a people that went short of nothing that day multiplies.
+  /// of the month a people that went short of nothing that day multiplies, and
+  /// every open war is fought. What was declared or signed since the last day
+  /// is told first.
   /// </summary>
   public DayReport Elapse(GameDate today)
   {
-    List<Occurrence> occurrences = [];
+    List<Occurrence> occurrences = [.. _pending];
+
+    _pending.Clear();
     List<Yield> yields = [];
 
     foreach (var country in _countries)
@@ -300,9 +456,31 @@ public sealed class World
           occurrences.Add(new PopulationGrew(country.Name, born));
         }
       }
+
+      occurrences.AddRange(Fight());
     }
 
     return new DayReport(today, occurrences);
+  }
+
+  /// <summary>
+  /// A month of fighting in every open war, weighed by what each society can
+  /// put under arms.
+  /// </summary>
+  private List<TheFrontMoved> Fight()
+  {
+    List<TheFrontMoved> fronts = [];
+
+    foreach (var war in _wars.Where(war => !war.IsOver))
+    {
+      var aggressor = Country(war.Aggressor);
+      var defender = Country(war.Defender);
+
+      war.Fight(aggressor.Armable, defender.Armable);
+      fronts.Add(new TheFrontMoved(aggressor.Name, defender.Name, war.Momentum));
+    }
+
+    return fronts;
   }
 
   /// <summary>

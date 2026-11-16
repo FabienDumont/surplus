@@ -64,7 +64,7 @@ public sealed class WorldBuilder
 
   public World Build()
   {
-    return World.Load(_register, _techniques, _subsistence, _countries, _wars);
+    return World.Load(_register, _techniques, _subsistence, _countries, _wars, []);
   }
 
   #endregion

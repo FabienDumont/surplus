@@ -26,6 +26,10 @@ public static class Significance
       BranchStoodIdle idle => AtHomeOrAbroad(idle.Country, world),
       CommodityWasRevalued => Importance.Notable,
       PopulationGrew => Importance.Routine,
+      // What the player did needs no stopping for; what was done to them does.
+      WarWasDeclared declared => AtHomeOrAbroad(declared.Defender, world),
+      PeaceWasMade peace => AtHomeOrAbroad(peace.Loser, world),
+      TheFrontMoved => Importance.Routine,
       _ => Importance.Notable
     };
   }
