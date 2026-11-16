@@ -155,6 +155,16 @@ public sealed class World
       throw new DomainException("The human can play only one country at a time.");
     }
 
+    foreach (var country in assembled)
+    {
+      var unheardOf = country.Knowledge.Known.FirstOrDefault(name => catalogue.All(technique => technique.Name != name));
+
+      if (unheardOf is not null)
+      {
+        throw new DomainException($"{country.Name} knows {unheardOf}, which is not a technique anyone has.");
+      }
+    }
+
     RejectUnfitBasket(register, subsistence);
 
     List<Border> drawn = [.. borders];
@@ -228,6 +238,20 @@ public sealed class World
     if (twice is not null)
     {
       throw new DomainException($"Two techniques cannot both be called {twice.Key}.");
+    }
+
+    // A technique grows only out of one listed before it, which also rules out
+    // any technique growing, however indirectly, out of itself.
+    for (var index = 0; index < catalogue.Count; index++)
+    {
+      var earlier = catalogue.Take(index).Select(technique => technique.Name).ToHashSet();
+      var missing = catalogue[index].Requires.FirstOrDefault(name => !earlier.Contains(name));
+
+      if (missing is not null)
+      {
+        throw new DomainException(
+          $"{catalogue[index].Name} cannot be developed from {missing}: no technique by that name comes before it.");
+      }
     }
 
     foreach (var technique in catalogue)
@@ -389,6 +413,7 @@ public sealed class World
         foreach (var province in ceded)
         {
           proposing.Annex(province);
+          LearnWhatIsWorkedIn(province, other, proposing);
         }
 
         _pending.Add(new PeaceWasMade(proposing.Name, other.Name, Ceding(ceded, proposing)));
@@ -399,6 +424,24 @@ public sealed class World
       default:
         _pending.Add(new PeaceWasMade(proposing.Name, other.Name, "nothing changes hands"));
         break;
+    }
+  }
+
+  /// <summary>
+  /// A victor takes the workshops of a ceded province, and the hands that
+  /// know them: it learns every technique the loser knew that a branch there is
+  /// actually worked by, read off what the branch makes and how fast.
+  /// </summary>
+  private void LearnWhatIsWorkedIn(Province province, Country loser, Country winner)
+  {
+    foreach (var branch in province.Branches)
+    {
+      foreach (var technique in _techniques.Where(technique =>
+                 loser.Knows(technique) && technique.Produces == branch.Produces &&
+                 technique.OutputPerHour == branch.OutputPerHour))
+      {
+        winner.Learn(technique);
+      }
     }
   }
 
@@ -436,6 +479,16 @@ public sealed class World
       winner.Annex(province);
     }
 
+    // What the loser knew passes to the victor; what it had only half found
+    // out is lost with it.
+    foreach (var name in loser.Knowledge.Known)
+    {
+      if (_techniques.FirstOrDefault(technique => technique.Name == name) is { } technique)
+      {
+        winner.Learn(technique);
+      }
+    }
+
     _countries.Remove(loser);
     _pending.Add(new PeaceWasMade(winner.Name, loser.Name, $"{loser.Name} is annexed by {winner.Name}"));
 
@@ -455,7 +508,8 @@ public sealed class World
   /// The new values set what keeping a hand costs. Goods then cross the
   /// borders inside each country, and everyone takes their basket out of their
   /// own province's store, so far as their revenue gives them a title to
-  /// it, and those who went without die of it. On the first of the month every
+  /// it, and those who went without die of it. The day's labour then brings
+  /// each country closer to the techniques it grows into. On the first of the month every
   /// open war is fought, a share of the unemployed sink into pauperism, and
   /// those who were fed multiply. What was declared or signed since the last day
   /// is told first.
@@ -466,11 +520,13 @@ public sealed class World
 
     _pending.Clear();
     List<Yield> yields = [];
+    Dictionary<CountryId, DayOfProduction> days = [];
 
     foreach (var country in _countries)
     {
       var day = country.WorkOneDay(Register);
 
+      days[country.Id] = day;
       yields.AddRange(day.Yields);
       occurrences.AddRange(day.Idle.Select(idle => StoodIdle(country, idle)));
     }
@@ -503,6 +559,12 @@ public sealed class World
       }
 
       fed.Add((country, rations));
+    }
+
+    foreach (var country in _countries)
+    {
+      occurrences.AddRange(country.Develop(_techniques, days[country.Id]).Select(technique =>
+        new TechniqueWasDeveloped(country.Name, technique.Name, Register.Get(technique.Produces).Name)));
     }
 
     if (today.Date.Day == 1)

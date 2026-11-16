@@ -3,9 +3,11 @@ using Surplus.Application.Reporting;
 using Surplus.Application.Scenarios;
 using Surplus.Application.Settings;
 using Surplus.Domain.GameEngine;
+using Surplus.Domain.SharedKernel;
 using Surplus.Domain.Simulation;
 using Surplus.Domain.Simulation.Chronicle;
 using Surplus.Domain.Simulation.Countries;
+using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
 
 namespace Surplus.Application.Tests.Scenarios;
@@ -311,6 +313,116 @@ public class EighteenThirtySixTests
       // What Muscovy gave up today, beyond what it wove and wore, never exceeds a twentieth of what it held.
       Assert.True(before + 93_000m - muscovy.Store.AmountOf(cloth) - muscovy.Population * 0.5m <= before * 0.05m);
     }
+  }
+
+  [Fact]
+  public void The_catalogue_lists_every_technique_after_the_ones_it_grows_out_of()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    Assert.Equal(
+      ["Peasant tillage", "Large farming", "Fibre growing", "Hand loom", "Iron working", "Machine shop", "Power loom", "Carting"],
+      world.Techniques.Select(technique => technique.Name));
+    Assert.Equal(["Hand loom", "Machine shop"], world.Technique("Power loom").Requires);
+    Assert.Equal(LaborTime.FromHours(50_000_000m), world.Technique("Large farming").Development);
+  }
+
+  [Theory]
+  [InlineData("United Kingdom", 8)]
+  [InlineData("United States", 8)]
+  [InlineData("Russia", 5)]
+  public void Each_country_knows_what_the_scenario_says(string name, int known)
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    Assert.Equal(known, Named(world, name).Knowledge.Known.Count);
+  }
+
+  [Fact]
+  public void Russia_knows_the_old_ways_and_not_the_machine()
+  {
+    var russia = Named(EighteenThirtySix.Build().World, "Russia");
+
+    Assert.Equal(["Peasant tillage", "Fibre growing", "Hand loom", "Iron working", "Carting"], russia.Knowledge.Known);
+  }
+
+  [Fact]
+  public void Every_branch_in_the_scenario_works_by_a_technique_its_country_knows()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    foreach (var country in world.Countries)
+    {
+      foreach (var branch in country.Provinces.SelectMany(province => province.Branches))
+      {
+        var technique = world.Techniques.Single(candidate =>
+          candidate.Produces == branch.Produces && candidate.OutputPerHour == branch.OutputPerHour);
+
+        Assert.True(country.Knows(technique), $"{country.Name} works {technique.Name} without knowing it.");
+      }
+    }
+  }
+
+  [Fact]
+  public void Every_branch_in_the_scenario_is_worked_by_a_class_that_can_work_its_technique()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    Assert.All(
+      world.Countries.SelectMany(country => country.Provinces).SelectMany(province => province.Branches),
+      branch => Assert.True(world.Techniques
+        .Single(candidate => candidate.Produces == branch.Produces && candidate.OutputPerHour == branch.OutputPerHour)
+        .CanBeWorkedBy(branch.Workforce)));
+  }
+
+  [Fact]
+  public void Nothing_is_found_out_in_a_year_left_alone()
+  {
+    var reports = Session.Begin(EighteenThirtySix.Build()).Advance(365);
+
+    Assert.Empty(reports.SelectMany(report => report.Of<TechniqueWasDeveloped>()));
+  }
+
+  [Fact]
+  public void Russia_finds_out_large_farming_on_its_673rd_day()
+  {
+    var session = Session.Begin(EighteenThirtySix.Build());
+
+    // 62,000 serfs on corn, twelve hours, at the lord's tenth: 74,400 hours a day against 50,000,000.
+    var reports = session.Advance(673);
+
+    var found = Assert.Single(reports.SelectMany(report => report.Of<TechniqueWasDeveloped>()));
+    Assert.Equal(new TechniqueWasDeveloped("Russia", "Large farming", "Corn"), found);
+    Assert.Single(reports[^1].Of<TechniqueWasDeveloped>());
+  }
+
+  [Fact]
+  public void Russia_can_farm_large_once_it_has_found_out_how_but_never_weave_by_machine_with_serfs()
+  {
+    var world = EighteenThirtySix.Build().World;
+    var russia = Named(world, "Russia");
+    var muscovy = russia.Provinces.Single(province => province.Name == "Muscovy");
+    var corn = world.Register.Commodities.Single(commodity => commodity.Name == "Corn").Id;
+    var cloth = world.Register.Commodities.Single(commodity => commodity.Name == "Cloth").Id;
+
+    russia.Learn(world.Technique("Large farming"));
+    russia.Learn(world.Technique("Machine shop"));
+    russia.Learn(world.Technique("Power loom"));
+    russia.Reequip(muscovy.Id, corn, world.Technique("Large farming"));
+
+    Assert.Equal(world.Technique("Large farming").OutputPerHour, muscovy.Branches.Single(branch => branch.Produces == corn).OutputPerHour);
+    Assert.Throws<DomainException>(() => russia.Reequip(muscovy.Id, cloth, world.Technique("Power loom")));
+  }
+
+  [Fact]
+  public void The_ai_countries_let_no_one_go_without_in_five_years()
+  {
+    var reports = Session.Begin(EighteenThirtySix.Build()).Advance(1_826);
+
+    // The United Kingdom is played and nobody is playing it, so it is not asserted.
+    string[] machine = ["United States", "Russia"];
+    Assert.DoesNotContain(reports.SelectMany(report => report.Of<PeopleWentWithout>()), famine => machine.Contains(famine.Country));
+    Assert.DoesNotContain(reports.SelectMany(report => report.Of<BranchStoodIdle>()), idle => machine.Contains(idle.Country));
   }
 
   [Fact]

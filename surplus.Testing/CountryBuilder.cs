@@ -1,6 +1,7 @@
 using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Politics;
+using Surplus.Domain.Simulation.Production;
 
 namespace Surplus.Testing;
 
@@ -17,6 +18,7 @@ public sealed class CountryBuilder
   private Government _government = new GovernmentBuilder().Build();
   private CountryId _id = CountryId.New();
   private string _name = "France";
+  private Knowledge _knowledge = Knowledge.None;
   private List<Province> _provinces = [new ProvinceBuilder().Build()];
   private List<Stock> _stocks = [];
 
@@ -65,6 +67,21 @@ public sealed class CountryBuilder
     return this;
   }
 
+  /// <summary>Knows exactly these techniques, by name, and has nothing under way.</summary>
+  public CountryBuilder Knowing(params string[] techniques)
+  {
+    _knowledge = Knowledge.Of(techniques, []);
+
+    return this;
+  }
+
+  public CountryBuilder WithKnowledge(Knowledge knowledge)
+  {
+    _knowledge = knowledge;
+
+    return this;
+  }
+
   /// <summary>
   /// Lays these heaps up in the country's first province, on top of whatever
   /// that province already holds. Stores are kept by province; a test that
@@ -84,7 +101,7 @@ public sealed class CountryBuilder
       _provinces[0].LayUp(stock);
     }
 
-    return Country.Load(_id, _name, _control, _government, _provinces);
+    return Country.Load(_id, _name, _control, _government, _provinces, _knowledge);
   }
 
   #endregion

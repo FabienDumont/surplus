@@ -520,7 +520,8 @@ public sealed class Terminal
       _output.WriteLine(
         $"[{index + 1}] {technique.Name}: {_session.World.Register.Get(technique.Produces).Name}, {technique.Form}, " +
         $"{Shown(technique.OutputPerHour)} an hour; instruments per hand: {Stocks(technique.InstrumentsPerHand)}; " +
-        $"material per hand a day: {Stocks(technique.MaterialPerHand)}");
+        $"material per hand a day: {Stocks(technique.MaterialPerHand)}" +
+        (_session.World.Played is { } played ? $" — {Mastery.Of(played, technique)}" : ""));
     }
   }
 

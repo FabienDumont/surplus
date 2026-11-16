@@ -89,17 +89,27 @@ public sealed class Country
   /// </summary>
   public Store Store => Store.Empty.LaidUp(_provinces.SelectMany(province => province.Store.Stocks));
 
+  /// <summary>
+  /// What this country knows how to do, and what it is on the way to finding.
+  /// Knowledge belongs to the country and not to the world: Britain knew the
+  /// power loom long before Russia did.
+  /// </summary>
+  public Knowledge Knowledge { get; private set; }
+
   #endregion
 
   #region Ctors
 
-  private Country(CountryId id, string name, CountryControl control, Government government, List<Province> provinces)
+  private Country(
+    CountryId id, string name, CountryControl control, Government government, List<Province> provinces,
+    Knowledge knowledge)
   {
     Id = id;
     Name = name;
     Control = control;
     Government = government;
     _provinces = provinces;
+    Knowledge = knowledge;
   }
 
   #endregion
@@ -115,7 +125,7 @@ public sealed class Country
       throw new DomainException("A country must have a name.");
     }
 
-    return new Country(CountryId.New(), name.Trim(), control, government, [firstProvince]);
+    return new Country(CountryId.New(), name.Trim(), control, government, [firstProvince], Knowledge.None);
   }
 
   /// <summary>
@@ -124,9 +134,75 @@ public sealed class Country
   /// was saved.
   /// </summary>
   public static Country Load(
-    CountryId id, string name, CountryControl control, Government government, IEnumerable<Province> provinces)
+    CountryId id, string name, CountryControl control, Government government, IEnumerable<Province> provinces,
+    Knowledge knowledge)
   {
-    return new Country(id, name, control, government, [.. provinces]);
+    return new Country(id, name, control, government, [.. provinces], knowledge);
+  }
+
+  public bool Knows(Technique technique)
+  {
+    return Knowledge.Knows(technique.Name);
+  }
+
+  /// <summary>Comes to know a technique by any means but working: the scenario, or conquest.</summary>
+  public void Learn(Technique technique)
+  {
+    Knowledge = Knowledge.Learnt(technique.Name);
+  }
+
+  /// <summary>
+  /// Credits a day's labour to the techniques it brings closer, and returns
+  /// those found today. Invention comes out of the trades that prepare it: the
+  /// machine was first built by manufacture, and only later by machines. So the
+  /// hours are counted in the trades a technique grows out of, not in any
+  /// laboratory, and weighed by the relations they were worked under.
+  /// Everything is credited before anything is learnt, so a technique found
+  /// today brings no other within reach until tomorrow.
+  /// </summary>
+  public IReadOnlyList<Technique> Develop(IReadOnlyList<Technique> catalogue, DayOfProduction day)
+  {
+    foreach (var province in _provinces)
+    {
+      foreach (var branch in province.Branches.Where(branch => !day.Idle.Contains(new IdleBranch(province.Id, branch.Produces))))
+      {
+        var hours = branch.LivingLabor * province.Mode.Drive();
+
+        foreach (var technique in catalogue.Where(technique => WithinReach(technique, catalogue, branch.Produces)))
+        {
+          Knowledge = Knowledge.Advanced(technique.Name, hours);
+        }
+      }
+    }
+
+    List<Technique> found =
+    [
+      .. catalogue.Where(technique =>
+        !Knows(technique) && !technique.IsElementary &&
+        Knowledge.Spent(technique.Name).CompareTo(technique.Development) >= 0)
+    ];
+
+    foreach (var technique in found)
+    {
+      Learn(technique);
+    }
+
+    return found;
+  }
+
+  /// <summary>
+  /// Whether labour in a trade brings a technique closer: it is not yet known,
+  /// it grows out of others, all of them are known, and one of them is worked in
+  /// this trade.
+  /// </summary>
+  private bool WithinReach(Technique technique, IReadOnlyList<Technique> catalogue, CommodityId trade)
+  {
+    if (Knows(technique) || technique.IsElementary || !technique.Requires.All(Knowledge.Knows))
+    {
+      return false;
+    }
+
+    return technique.Requires.Any(name => catalogue.FirstOrDefault(candidate => candidate.Name == name)?.Produces == trade);
   }
 
   public bool Governs(ProvinceId provinceId)
@@ -299,6 +375,25 @@ public sealed class Country
     return new Rations(each, storeShare);
   }
 
+  /// <summary>
+  /// The baskets the country's people have a title to in a day, by the same
+  /// reckoning as <see cref="Provision" />: what it must find each day, whatever
+  /// its stores can actually give.
+  /// </summary>
+  public decimal BasketsClaimed()
+  {
+    return _provinces.Sum(province => BasketsClaimed(province.Id));
+  }
+
+  /// <summary>The same reckoning for one province, which eats out of its own store.</summary>
+  public decimal BasketsClaimed(ProvinceId province)
+  {
+    var where = Governed(province);
+    var relieved = Government.RelievesThePoor;
+
+    return where.Composition.Presences.Sum(presence => Claim(where, presence, relieved).Claimed);
+  }
+
   /// <summary>What one class in one province has a title to, in baskets.</summary>
   private static (ProvinceId Province, SocialClass Class, int Heads, int Workless, decimal Claimed, bool First) Claim(
     Province province, ClassPresence presence, bool relieved)
@@ -437,6 +532,9 @@ public sealed class Country
     ProvinceId province, Technique technique, SocialClass workforce, int hands, LaborTime workingDay,
     LaborTime necessaryLabor)
   {
+    RequireKnown(technique);
+    RequireAbleToWork(technique, workforce);
+
     var where = Governed(province);
     var means = technique.EquipFor(hands);
     var branch = Branch.Open(
@@ -481,6 +579,8 @@ public sealed class Country
   /// </summary>
   public void Reequip(ProvinceId province, CommodityId commodity, Technique technique)
   {
+    RequireKnown(technique);
+
     if (technique.Produces != commodity)
     {
       throw new DomainException($"{technique.Name} does not produce what that branch produces.");
@@ -488,6 +588,9 @@ public sealed class Country
 
     var where = Governed(province);
     var branch = BranchWorking(where, commodity);
+
+    RequireAbleToWork(technique, branch.Workforce);
+
     var means = technique.EquipFor(branch.Hands);
 
     RequireInStore(where, means.Instruments, branch.Hands);
@@ -500,6 +603,24 @@ public sealed class Country
   public void FixTheWorkingDay(ProvinceId province, CommodityId commodity, LaborTime workingDay)
   {
     Governed(province).FixTheWorkingDay(commodity, workingDay);
+  }
+
+  private void RequireKnown(Technique technique)
+  {
+    if (!Knows(technique))
+    {
+      throw new DomainException($"{Name} does not know how to work by {technique.Name}.");
+    }
+  }
+
+  private static void RequireAbleToWork(Technique technique, SocialClass workforce)
+  {
+    if (!technique.CanBeWorkedBy(workforce))
+    {
+      throw new DomainException(
+        $"{workforce} cannot work by {technique.Name}: no mode of production that throws up " +
+        $"{workforce} has ever borne {technique.Form}.");
+    }
   }
 
   private Province Governed(ProvinceId province)

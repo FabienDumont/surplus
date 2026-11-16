@@ -77,6 +77,15 @@ public class SignificanceTests
   }
 
   [Fact]
+  public void A_technique_found_at_home_is_urgent()
+  {
+    var world = Kingdom();
+
+    Assert.Equal(Importance.Urgent, Significance.Of(new TechniqueWasDeveloped("United Kingdom", "Power loom", "Cloth"), world));
+    Assert.Equal(Importance.Notable, Significance.Of(new TechniqueWasDeveloped("Russia", "Large farming", "Corn"), world));
+  }
+
+  [Fact]
   public void The_front_is_routine()
   {
     Assert.Equal(Importance.Routine, Significance.Of(new TheFrontMoved("Russia", "United Kingdom", -4), Kingdom()));

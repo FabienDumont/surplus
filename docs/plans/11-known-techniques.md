@@ -20,6 +20,23 @@ and barely used it. A country may know a technique and not be able to work it. I
 instruments in store (plan 03), and it needs a class that can work it: a factory cannot be staffed by
 serfs.
 
+## As built
+
+Where the build departs from the text below:
+
+- **`Country.Load` takes the knowledge after the provinces.** Plan 10 removed the store parameter
+  this text puts it after.
+- **`CountryBuilder` defaults to knowing nothing.** It gains `Knowing(names...)` and
+  `WithKnowledge(...)`.
+- **Old tests now follow the new rules; the rules were not weakened.** Tests that opened branches
+  were given the knowledge they need. Those that set serfs or journeymen to power looms now use
+  proletarians, a class that can work them.
+- **The refusal names the class as the code spells it:** *"Serfs cannot work by Power loom: no mode of
+  production that throws up Serfs has ever borne MachineIndustry."*
+- **The console's known / under way / out of reach reading is `Reporting/Mastery.Of`** in the
+  application layer, so it can be tested. In 1836 the played United Kingdom knows all eight
+  techniques, so its column reads "known" throughout.
+
 ## Read first
 
 - `docs/plans/README.md`, decisions 7 and 8

@@ -1,3 +1,4 @@
+using Surplus.Application.Ai;
 using Surplus.Application.Reporting;
 using Surplus.Application.Scenarios;
 using Surplus.Domain.GameEngine;
@@ -102,6 +103,11 @@ public sealed class Session
 
         var report = World.Elapse(Game.CurrentDate);
 
+        if (Game.CurrentDate.Date.Day == 1)
+        {
+          LetTheMachinePlay();
+        }
+
         reports.Add(report);
 
         if (stopsAfter(report))
@@ -116,6 +122,22 @@ public sealed class Session
     }
 
     return reports;
+  }
+
+  /// <summary>
+  /// At the turn of a month every country no one plays takes its turn. The
+  /// list is read first, because a peace the machine makes can take a country
+  /// out of the world while the others are still to act.
+  /// </summary>
+  private void LetTheMachinePlay()
+  {
+    foreach (var country in World.Countries.Where(country => !country.IsPlayed).ToList())
+    {
+      if (World.Countries.Contains(country))
+      {
+        CountryAi.Act(World, country);
+      }
+    }
   }
 
   public void Enact(Law law)

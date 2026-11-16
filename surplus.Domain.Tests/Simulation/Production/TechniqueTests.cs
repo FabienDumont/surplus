@@ -1,6 +1,7 @@
 using Surplus.Domain.SharedKernel;
 using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Production;
+using Surplus.Domain.Simulation.Society;
 
 namespace Surplus.Domain.Tests.Simulation.Production;
 
@@ -62,6 +63,91 @@ public class TechniqueTests
   public void A_technique_reads_as_its_name_its_form_and_what_an_hour_yields()
   {
     Assert.Equal("Power loom: MachineIndustry, 2 yard an hour", PowerLoom().ToString());
+  }
+
+  [Fact]
+  public void An_elementary_technique_grows_out_of_no_other()
+  {
+    var loom = PowerLoom();
+
+    Assert.True(loom.IsElementary);
+    Assert.Empty(loom.Requires);
+    Assert.Equal(LaborTime.None, loom.Development);
+  }
+
+  [Fact]
+  public void A_developed_technique_grows_out_of_those_it_names_for_the_labour_it_costs()
+  {
+    var loom = PowerLoom().DevelopedFrom(LaborTime.FromHours(20_000_000m), "Hand loom", "Machine shop");
+
+    Assert.False(loom.IsElementary);
+    Assert.Equal(["Hand loom", "Machine shop"], loom.Requires);
+    Assert.Equal(LaborTime.FromHours(20_000_000m), loom.Development);
+    Assert.Equal(PowerLoom().OutputPerHour, loom.OutputPerHour);
+  }
+
+  [Fact]
+  public void A_technique_developed_from_nothing_is_no_development()
+  {
+    Assert.Throws<DomainException>(() => PowerLoom().DevelopedFrom(LaborTime.FromHours(1m)));
+  }
+
+  [Fact]
+  public void A_technique_that_costs_no_labour_to_find_is_no_development()
+  {
+    Assert.Throws<DomainException>(() => PowerLoom().DevelopedFrom(LaborTime.None, "Hand loom"));
+  }
+
+  [Fact]
+  public void A_technique_cannot_grow_out_of_the_same_one_twice()
+  {
+    Assert.Throws<DomainException>(() => PowerLoom().DevelopedFrom(LaborTime.FromHours(1m), "Hand loom", "Hand loom"));
+  }
+
+  [Fact]
+  public void A_technique_cannot_grow_out_of_itself()
+  {
+    Assert.Throws<DomainException>(() => PowerLoom().DevelopedFrom(LaborTime.FromHours(1m), "Power loom"));
+  }
+
+  [Fact]
+  public void Techniques_developed_differently_are_different_techniques()
+  {
+    var fromHandLoom = PowerLoom().DevelopedFrom(LaborTime.FromHours(1m), "Hand loom");
+
+    Assert.NotEqual(PowerLoom(), fromHandLoom);
+    Assert.NotEqual(fromHandLoom, PowerLoom().DevelopedFrom(LaborTime.FromHours(2m), "Hand loom"));
+    Assert.NotEqual(fromHandLoom, PowerLoom().DevelopedFrom(LaborTime.FromHours(1m), "Jenny"));
+    Assert.Equal(fromHandLoom, PowerLoom().DevelopedFrom(LaborTime.FromHours(1m), "Hand loom"));
+    Assert.Equal(fromHandLoom.GetHashCode(), PowerLoom().DevelopedFrom(LaborTime.FromHours(1m), "Hand loom").GetHashCode());
+  }
+
+  [Fact]
+  public void A_proletarian_can_work_a_power_loom()
+  {
+    Assert.True(PowerLoom().CanBeWorkedBy(SocialClass.Proletariat));
+  }
+
+  [Fact]
+  public void A_serf_cannot_work_a_power_loom()
+  {
+    Assert.False(PowerLoom().CanBeWorkedBy(SocialClass.Serfs));
+  }
+
+  [Fact]
+  public void A_slave_cannot_work_a_power_loom()
+  {
+    Assert.False(PowerLoom().CanBeWorkedBy(SocialClass.Slaves));
+  }
+
+  [Fact]
+  public void A_serf_can_work_by_hand_and_in_cooperation()
+  {
+    var handLoom = Technique.Of("Hand loom", Cloth, ProductiveForm.Handicraft, Quantity.Of(0.5m, Yard), 0m, [], []);
+    var farming = Technique.Of("Large farming", Fibre, ProductiveForm.Cooperation, Quantity.Of(1m, Pound), 0m, [], []);
+
+    Assert.True(handLoom.CanBeWorkedBy(SocialClass.Serfs));
+    Assert.True(farming.CanBeWorkedBy(SocialClass.Serfs));
   }
 
   #endregion

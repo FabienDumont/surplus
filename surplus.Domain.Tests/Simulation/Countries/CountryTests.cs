@@ -292,10 +292,10 @@ public class CountryTests
   public void Opening_a_branch_takes_its_instruments_out_of_the_store()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 100m));
 
-    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary);
 
     var branch = Assert.Single(lancashire.Branches);
     Assert.Equal(cloth.Id, branch.Produces);
@@ -307,13 +307,13 @@ public class CountryTests
   public void A_branch_cannot_be_opened_on_instruments_the_store_does_not_hold()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 10m));
 
     var refusal = Assert.Throws<DomainException>(
-      () => britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary));
+      () => britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary));
 
-    Assert.Equal("There is not enough in store in Île-de-France to equip 40 hands: 10 loom lacking.", refusal.Message);
+    Assert.Equal("There is not enough in store in Lancashire to equip 40 hands: 10 loom lacking.", refusal.Message);
     Assert.Empty(lancashire.Branches);
     Assert.Equal(Store.Of(LoomsOf(loom, 10m)), britain.Store);
   }
@@ -322,11 +322,11 @@ public class CountryTests
   public void A_branch_cannot_be_opened_in_a_province_the_country_does_not_govern()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var britain = Britain(new ProvinceBuilder().Build(), LoomsOf(loom, 100m));
+    var britain = Britain(Proletarians(), LoomsOf(loom, 100m));
     var normandie = new ProvinceBuilder().WithName("Normandie").Build();
 
     Assert.Throws<DomainException>(
-      () => britain.OpenBranch(normandie.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary));
+      () => britain.OpenBranch(normandie.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary));
     Assert.Empty(normandie.Branches);
     Assert.Equal(100m, britain.Store.AmountOf(loom.Id));
   }
@@ -335,9 +335,9 @@ public class CountryTests
   public void Taking_on_hands_takes_their_instruments_out_of_the_store()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 100m));
-    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary);
 
     britain.Employ(lancashire.Id, cloth.Id, 20);
 
@@ -351,9 +351,9 @@ public class CountryTests
   public void Hands_cannot_be_taken_on_without_instruments_to_give_them()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 25m));
-    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary);
 
     Assert.Throws<DomainException>(() => britain.Employ(lancashire.Id, cloth.Id, 20));
 
@@ -367,10 +367,10 @@ public class CountryTests
   public void Hands_with_bare_hands_need_nothing_from_the_store()
   {
     var (_, cloth, yarn, _) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire);
 
-    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Proletariat, 40, Day, Necessary);
     britain.Employ(lancashire.Id, cloth.Id, 20);
 
     Assert.Equal(60, Assert.Single(lancashire.Branches).Hands);
@@ -381,9 +381,9 @@ public class CountryTests
   public void Laying_off_returns_nothing_to_the_store()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 20m));
-    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary);
 
     britain.LayOff(lancashire.Id, cloth.Id, 20);
 
@@ -397,9 +397,9 @@ public class CountryTests
   public void Reequipping_takes_the_new_instruments_and_scraps_the_old()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 100m));
-    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary);
 
     britain.Reequip(lancashire.Id, cloth.Id, PowerLoom(cloth, yarn, loom, "Self-acting loom", perHand: 1m));
 
@@ -412,9 +412,9 @@ public class CountryTests
   public void A_branch_cannot_be_reequipped_to_make_something_else()
   {
     var (_, cloth, yarn, _) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire);
-    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Proletariat, 40, Day, Necessary);
     var spinning = Technique.Of(
       "Spinning wheel", yarn.Id, ProductiveForm.Handicraft, Quantity.Of(1m, Pound), 0m, [], []);
 
@@ -426,9 +426,9 @@ public class CountryTests
   public void Reequipping_raises_what_an_hour_of_labour_yields()
   {
     var (register, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 100m), Stock.Of(yarn.Id, Quantity.Of(2_000m, Pound)));
-    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Proletariat, 40, Day, Necessary);
 
     var byHand = Assert.Single(britain.WorkOneDay(register).Yields).Product.Quantity;
 
@@ -445,9 +445,9 @@ public class CountryTests
   public void Closing_a_branch_scraps_its_instruments()
   {
     var (_, cloth, yarn, loom) = Weaving();
-    var lancashire = new ProvinceBuilder().Build();
+    var lancashire = Proletarians();
     var britain = Britain(lancashire, LoomsOf(loom, 100m));
-    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary);
+    britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary);
 
     britain.CloseBranch(lancashire.Id, cloth.Id);
 
@@ -511,7 +511,7 @@ public class CountryTests
     var lancashire = new ProvinceBuilder().WithName("Lancashire")
       .WithClasses(ClassPresence.Of(SocialClass.Proletariat, 100)).Build();
     var kent = new ProvinceBuilder().WithName("Kent").Holding(LoomsOf(loom, 100m)).Build();
-    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Build();
+    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Knowing("Power loom").Build();
 
     var refusal = Assert.Throws<DomainException>(() => britain.OpenBranch(
       lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary));
@@ -548,6 +548,195 @@ public class CountryTests
     Assert.Equal(0m, rations.Each.Single(ration => ration.Province == lancashire.Id).Provided);
     Assert.Equal(10m, rations.Each.Single(ration => ration.Province == kent.Id).Provided);
     Assert.Equal(990m, kent.Store.AmountOf(corn.Id));
+  }
+
+  [Fact]
+  public void A_country_cannot_open_a_branch_by_a_technique_it_does_not_know()
+  {
+    var (_, cloth, yarn, _) = Weaving();
+    var lancashire = Proletarians();
+    var britain = new CountryBuilder().WithName("United Kingdom").WithProvinces(lancashire).Build();
+
+    var refusal = Assert.Throws<DomainException>(
+      () => britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Proletariat, 40, Day, Necessary));
+
+    Assert.Equal("United Kingdom does not know how to work by Hand loom.", refusal.Message);
+    Assert.Empty(lancashire.Branches);
+  }
+
+  [Fact]
+  public void A_country_cannot_reequip_by_a_technique_it_does_not_know()
+  {
+    var (_, cloth, yarn, loom) = Weaving();
+    var lancashire = Proletarians();
+    var britain = new CountryBuilder().WithName("United Kingdom").WithProvinces(lancashire).Knowing("Hand loom")
+      .Holding(LoomsOf(loom, 100m)).Build();
+    britain.OpenBranch(lancashire.Id, HandLoom(cloth, yarn), SocialClass.Proletariat, 40, Day, Necessary);
+
+    Assert.Throws<DomainException>(() => britain.Reequip(lancashire.Id, cloth.Id, PowerLoom(cloth, yarn, loom)));
+    Assert.Equal(ProductiveForm.Handicraft, Assert.Single(lancashire.Branches).Form);
+  }
+
+  [Fact]
+  public void A_country_cannot_set_a_class_to_a_technique_it_cannot_work()
+  {
+    var (_, cloth, yarn, loom) = Weaving();
+    var muscovy = new ProvinceBuilder().WithName("Muscovy").WithClasses(ClassPresence.Of(SocialClass.Serfs, 1_000)).Build();
+    var russia = new CountryBuilder().WithName("Russia").WithProvinces(muscovy).Knowing("Hand loom", "Power loom")
+      .Holding(LoomsOf(loom, 100m)).Build();
+
+    var refusal = Assert.Throws<DomainException>(
+      () => russia.OpenBranch(muscovy.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary));
+
+    Assert.Equal(
+      "Serfs cannot work by Power loom: no mode of production that throws up Serfs has ever borne MachineIndustry.",
+      refusal.Message);
+  }
+
+  [Fact]
+  public void A_country_cannot_reequip_its_serfs_with_machines()
+  {
+    var (_, cloth, yarn, loom) = Weaving();
+    var muscovy = new ProvinceBuilder().WithName("Muscovy").WithClasses(ClassPresence.Of(SocialClass.Serfs, 1_000)).Build();
+    var russia = new CountryBuilder().WithName("Russia").WithProvinces(muscovy).Knowing("Hand loom", "Power loom")
+      .Holding(LoomsOf(loom, 100m)).Build();
+    russia.OpenBranch(muscovy.Id, HandLoom(cloth, yarn), SocialClass.Serfs, 40, Day, Necessary);
+
+    Assert.Throws<DomainException>(() => russia.Reequip(muscovy.Id, cloth.Id, PowerLoom(cloth, yarn, loom)));
+    Assert.Equal(100m, russia.Store.AmountOf(loom.Id));
+  }
+
+  [Fact]
+  public void A_known_technique_may_still_be_out_of_use()
+  {
+    var (_, cloth, yarn, loom) = Weaving();
+    var britain = new CountryBuilder().Knowing("Power loom").Holding(LoomsOf(loom, 100m)).Build();
+
+    Assert.True(britain.Knows(PowerLoom(cloth, yarn, loom)));
+    Assert.Empty(britain.Provinces[0].Branches);
+    Assert.Equal(100m, britain.Store.AmountOf(loom.Id));
+  }
+
+  [Fact]
+  public void A_country_learns_what_it_is_taught_once()
+  {
+    var (_, cloth, yarn, _) = Weaving();
+    var britain = new CountryBuilder().Build();
+
+    britain.Learn(HandLoom(cloth, yarn));
+    britain.Learn(HandLoom(cloth, yarn));
+
+    Assert.Equal(["Hand loom"], britain.Knowledge.Known);
+  }
+
+  [Fact]
+  public void A_days_labour_brings_closer_the_techniques_it_grows_into()
+  {
+    var (britain, catalogue, _) = Foundry(SocialClass.Proletariat);
+
+    britain.Develop(catalogue, Unhindered());
+
+    // A thousand hands, twelve hours, under capital.
+    Assert.Equal(LaborTime.FromHours(12_000m), britain.Knowledge.Spent("Machine shop"));
+  }
+
+  [Fact]
+  public void Labour_in_an_unrelated_trade_brings_nothing_closer()
+  {
+    var (britain, catalogue, _) = Foundry(SocialClass.Proletariat);
+
+    britain.Develop(catalogue, Unhindered());
+
+    Assert.Equal(LaborTime.None, britain.Knowledge.Spent("Power loom"));
+    Assert.Equal(LaborTime.None, britain.Knowledge.Spent("Hand loom"));
+  }
+
+  [Fact]
+  public void A_technique_whose_prerequisites_are_not_all_known_is_out_of_reach()
+  {
+    var (_, catalogue, foundry) = Foundry(SocialClass.Proletariat);
+    var loomWorks = new BranchBuilder().Producing(catalogue[0].Produces).WorkedBy(SocialClass.Proletariat, 10).Build();
+    var mills = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Proletariat, 10)).Working(loomWorks).Build();
+    var kingdom = new CountryBuilder().WithProvinces(foundry, mills).Knowing("Iron working", "Hand loom").Build();
+
+    kingdom.Develop(catalogue, Unhindered());
+
+    // The power loom needs the machine shop too, which is not yet known.
+    Assert.Equal(LaborTime.None, kingdom.Knowledge.Spent("Power loom"));
+  }
+
+  [Fact]
+  public void An_idle_branch_brings_nothing_closer()
+  {
+    var (britain, catalogue, foundry) = Foundry(SocialClass.Proletariat);
+    var iron = foundry.Branches[0].Produces;
+
+    britain.Develop(catalogue, new DayOfProduction([], [new IdleBranch(foundry.Id, iron)]));
+
+    Assert.Equal(LaborTime.None, britain.Knowledge.Spent("Machine shop"));
+  }
+
+  [Theory]
+  [InlineData(SocialClass.Proletariat, 84)]
+  [InlineData(SocialClass.Serfs, 834)]
+  public void A_capitalist_province_finds_out_ten_times_faster_than_a_feudal_one(SocialClass workforce, int days)
+  {
+    var (country, catalogue, _) = Foundry(workforce);
+    var day = 0;
+
+    while (!country.Knows(catalogue[3]))
+    {
+      day++;
+      country.Develop(catalogue, Unhindered());
+    }
+
+    // A million hours, at 12,000 a day under capital and 1,200 under the lord.
+    Assert.Equal(days, day);
+  }
+
+  [Fact]
+  public void A_technique_is_found_when_enough_labour_has_gone_into_it()
+  {
+    var (britain, catalogue, _) = Foundry(SocialClass.Proletariat);
+    britain = new CountryBuilder().WithProvinces(britain.Provinces[0])
+      .WithKnowledge(Knowledge.Of(["Iron working"], [new Development("Machine shop", LaborTime.FromHours(990_000m))]))
+      .Build();
+
+    var found = britain.Develop(catalogue, Unhindered());
+
+    Assert.Equal([catalogue[3]], found);
+    Assert.True(britain.Knows(catalogue[3]));
+    Assert.Empty(britain.Knowledge.UnderWay);
+  }
+
+  [Fact]
+  public void A_technique_found_today_brings_no_other_within_reach_until_tomorrow()
+  {
+    var (_, catalogue, foundry) = Foundry(SocialClass.Proletariat);
+    var machines = new BranchBuilder().Producing(catalogue[3].Produces).WorkedBy(SocialClass.Proletariat, 10).Build();
+    var works = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Proletariat, 10)).Working(machines).Build();
+    var britain = new CountryBuilder().WithProvinces(foundry, works)
+      .WithKnowledge(Knowledge.Of(["Iron working", "Hand loom"], [new Development("Machine shop", LaborTime.FromHours(990_000m))]))
+      .Build();
+
+    britain.Develop(catalogue, Unhindered());
+    var tomorrow = britain.Knowledge.Spent("Power loom");
+    britain.Develop(catalogue, Unhindered());
+
+    Assert.Equal(LaborTime.None, tomorrow);
+    Assert.True(britain.Knowledge.Spent("Power loom").CompareTo(LaborTime.None) > 0);
+  }
+
+  [Fact]
+  public void A_country_counts_the_baskets_its_people_have_a_title_to_without_drawing_them()
+  {
+    var (corn, cloth, _) = Basket();
+    var (britain, lancashire) = Mill(100, 60, true, Corn(corn, 1_000m), Cloth(cloth, 1_000m));
+
+    // Sixty wages and forty halves of relief.
+    Assert.Equal(80m, britain.BasketsClaimed());
+    Assert.Equal(80m, britain.BasketsClaimed(lancashire.Id));
+    Assert.Equal(1_000m, britain.Store.AmountOf(corn.Id));
   }
 
   [Fact]
@@ -914,9 +1103,54 @@ public class CountryTests
     return (britain, lancashire);
   }
 
+  /// <summary>
+  /// A catalogue of hand loom, iron working, a machine shop that grows out of
+  /// iron working for a million hours, and a power loom that grows out of the
+  /// hand loom and the machine shop; and a country knowing only iron working,
+  /// with a thousand hands of the given class at the forge.
+  /// </summary>
+  private static (Country Country, List<Technique> Catalogue, Province Foundry) Foundry(SocialClass workforce)
+  {
+    var cloth = CommodityId.New();
+    var iron = CommodityId.New();
+    var machinery = CommodityId.New();
+    var tonne = UnitOfMeasure.Of("t");
+    var machine = UnitOfMeasure.Of("machine");
+    List<Technique> catalogue =
+    [
+      Technique.Of("Hand loom", cloth, ProductiveForm.Handicraft, Quantity.Of(0.5m, Yard), 0m, [], []),
+      Technique.Of("Iron working", iron, ProductiveForm.Cooperation, Quantity.Of(0.01m, tonne), 0m, [], []),
+      Technique.Of("Jenny", CommodityId.New(), ProductiveForm.Manufacture, Quantity.Of(1m, Pound), 0m, [], []),
+      Technique.Of("Machine shop", machinery, ProductiveForm.Manufacture, Quantity.Of(0.0005m, machine), 0m, [], [])
+        .DevelopedFrom(LaborTime.FromHours(1_000_000m), "Iron working"),
+      Technique.Of("Power loom", cloth, ProductiveForm.MachineIndustry, Quantity.Of(2m, Yard), 0m, [], [])
+        .DevelopedFrom(LaborTime.FromHours(20_000_000m), "Hand loom", "Machine shop")
+    ];
+    var forge = new BranchBuilder().Producing(iron).InTheFormOf(ProductiveForm.Cooperation).WorkedBy(workforce, 1_000)
+      .Build();
+    var foundry = new ProvinceBuilder().WithClasses(ClassPresence.Of(workforce, 1_000)).Working(forge).Build();
+    var country = new CountryBuilder().WithProvinces(foundry).Knowing("Iron working").Build();
+
+    return (country, catalogue, foundry);
+  }
+
+  private static DayOfProduction Unhindered()
+  {
+    return new DayOfProduction([], []);
+  }
+
+  /// <summary>A United Kingdom that knows every way of weaving these tests use.</summary>
   private static Country Britain(Province province, params Stock[] stocks)
   {
-    return new CountryBuilder().WithName("United Kingdom").WithProvinces(province).Holding(stocks).Build();
+    return new CountryBuilder().WithName("United Kingdom").WithProvinces(province)
+      .Knowing("Hand loom", "Power loom", "Self-acting loom", "Spinning wheel").Holding(stocks).Build();
+  }
+
+  /// <summary>A Lancashire of a thousand proletarians and nothing else.</summary>
+  private static Province Proletarians()
+  {
+    return new ProvinceBuilder().WithName("Lancashire").WithClasses(ClassPresence.Of(SocialClass.Proletariat, 1_000))
+      .Build();
   }
 
   private static Stock LoomsOf(Commodity loom, decimal amount)

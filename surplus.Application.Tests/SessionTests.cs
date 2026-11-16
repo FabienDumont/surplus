@@ -200,6 +200,20 @@ public class SessionTests
   }
 
   [Fact]
+  public void A_technique_the_country_has_not_found_cannot_be_used()
+  {
+    var loom = Technique.Of("Hand loom", CommodityId.New(), ProductiveForm.Handicraft, Quantity.Of(0.5m, UnitOfMeasure.Of("m")), 0m, [], []);
+    var province = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Proletariat, 100)).Build();
+    var country = new CountryBuilder().WithName("United Kingdom").Played().WithProvinces(province).Build();
+    var session = Session.Begin(new Scenario("1836", NewYear, new WorldBuilder().WithTechniques(loom).WithCountries(country).Build()));
+
+    var refusal = Assert.Throws<DomainException>(
+      () => session.OpenBranch(province.Id, "Hand loom", SocialClass.Proletariat, 10, TwelveHours));
+
+    Assert.Equal("United Kingdom does not know how to work by Hand loom.", refusal.Message);
+  }
+
+  [Fact]
   public void The_player_fixes_the_working_day()
   {
     var session = InEighteenThirtySix();

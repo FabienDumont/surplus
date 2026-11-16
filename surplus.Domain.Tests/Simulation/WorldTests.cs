@@ -231,6 +231,33 @@ public class WorldTests
   }
 
   [Fact]
+  public void A_technique_must_grow_out_of_one_listed_before_it()
+  {
+    var (register, cloth, yarn) = Weaving();
+    var hand = HandLoom(cloth, yarn);
+    var later = Technique.Of("Better loom", cloth.Id, ProductiveForm.Handicraft, Quantity.Of(1m, Yard), 0m, [], [])
+      .DevelopedFrom(LaborTime.FromHours(1m), "Hand loom");
+
+    var refusal = Assert.Throws<DomainException>(
+      () => World.Assemble(register, [later, hand], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
+
+    Assert.Equal("Better loom cannot be developed from Hand loom: no technique by that name comes before it.", refusal.Message);
+    Assert.NotNull(World.Assemble(register, [hand, later], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
+  }
+
+  [Fact]
+  public void A_country_cannot_know_a_technique_no_one_has()
+  {
+    var (register, cloth, yarn) = Weaving();
+    var russia = new CountryBuilder().WithName("Russia").Knowing("Steam hammer").Build();
+
+    var refusal = Assert.Throws<DomainException>(
+      () => World.Assemble(register, [HandLoom(cloth, yarn)], Unfed, [russia], [], Haulage.None));
+
+    Assert.Equal("Russia knows Steam hammer, which is not a technique anyone has.", refusal.Message);
+  }
+
+  [Fact]
   public void A_technique_is_found_by_its_name()
   {
     var (register, cloth, yarn) = Weaving();
@@ -411,7 +438,7 @@ public class WorldTests
       [Stock.Of(machinery.Id, Quantity.Of(0.5m, Machine))], []);
     var handWeavers = HandWeavers(cloth, handLoom);
     var lancashire = new ProvinceBuilder().WithName("Lancashire").Working(HandWeavers(cloth, handLoom)).Build();
-    var britain = new CountryBuilder().WithProvinces(lancashire)
+    var britain = new CountryBuilder().WithProvinces(lancashire).Knowing("Hand loom", "Power loom")
       .Holding(Stock.Of(machinery.Id, Quantity.Of(50m, Machine))).Build();
     var france = new CountryBuilder().WithProvinces(new ProvinceBuilder().Working(handWeavers).Build()).Build();
     var world = new WorldBuilder().WithRegister(register).WithTechniques(handLoom, powerLoom)
@@ -464,7 +491,7 @@ public class WorldTests
     var farms = new BranchBuilder().Producing(corn.Id).InTheFormOf(ProductiveForm.Cooperation)
       .WorkedBy(SocialClass.Serfs, 100).WithOutputPerHour(tillage.OutputPerHour).Build();
     var kent = new ProvinceBuilder().Working(farms, ironworks).Build();
-    var britain = new CountryBuilder().WithProvinces(kent).Build();
+    var britain = new CountryBuilder().WithProvinces(kent).Knowing("Tillage", "Large farming").Build();
     var world = new WorldBuilder().WithRegister(register).WithTechniques(tillage, farming)
       .WithSubsistence(Basket(corn, cloth)).WithCountries(britain).Build();
 
@@ -939,6 +966,68 @@ public class WorldTests
   }
 
   [Fact]
+  public void A_day_reports_the_techniques_found_in_it()
+  {
+    var (register, _, _, iron) = Fed();
+    var machinery = new CommodityBuilder().WithName("Machinery").WithDepartment(Department.MeansOfProduction)
+      .WithUseValue(new UseValueBuilder().WithSatisfiedWant("motive power").WithUnit(Machine).Build()).Build();
+    var smelting = Technique.Of("Iron working", iron.Id, ProductiveForm.Cooperation, Quantity.Of(0.01m, Tonne), 0m, [], []);
+    var shop = Technique.Of("Machine shop", machinery.Id, ProductiveForm.Manufacture, Quantity.Of(1m, Machine), 0m, [], [])
+      .DevelopedFrom(LaborTime.FromHours(1_000m), "Iron working");
+    var britain = new CountryBuilder().WithName("United Kingdom")
+      .WithProvinces(new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Serfs, 900)).Working(Ironworks(iron)).Build())
+      .Knowing("Iron working").Build();
+    var world = new WorldBuilder().WithRegister(CommodityRegister.Of([.. register.Commodities, machinery]))
+      .WithTechniques(smelting, shop).WithCountries(britain).Build();
+
+    var report = world.Elapse(GameDate.Of(1836, 1, 2));
+
+    // A hundred serfs, twelve hours, at the lord's tenth: 120 hours a day toward a thousand.
+    Assert.Empty(report.Of<TechniqueWasDeveloped>());
+
+    var found = Enumerable.Range(3, 8).Select(day => world.Elapse(GameDate.Of(1836, 1, day)))
+      .SelectMany(day => day.Of<TechniqueWasDeveloped>()).ToList();
+
+    Assert.Equal([new TechniqueWasDeveloped("United Kingdom", "Machine shop", "Machinery")], found);
+  }
+
+  [Fact]
+  public void A_ceded_province_brings_its_victor_the_techniques_worked_in_it()
+  {
+    var (world, prussia, alsace, catalogue) = Conquest();
+
+    world.MakePeace(world.Wars[0].Id, prussia.Id, Peace.Ceding(alsace.Id));
+
+    Assert.True(prussia.Knows(catalogue[1]));
+  }
+
+  [Fact]
+  public void A_ceded_province_brings_nothing_its_branches_do_not_use()
+  {
+    var (world, prussia, alsace, catalogue) = Conquest();
+
+    world.MakePeace(world.Wars[0].Id, prussia.Id, Peace.Ceding(alsace.Id));
+
+    // France knows the jenny too, but nothing in Alsace is worked by it.
+    Assert.False(prussia.Knows(catalogue[2]));
+  }
+
+  [Fact]
+  public void An_annexing_victor_learns_everything_the_annexed_knew()
+  {
+    var (world, prussia, _, _) = Conquest();
+    var war = world.Wars[0];
+    var overwhelming = new WarBuilder().WithId(war.Id).WithAggressor(war.Aggressor).WithDefender(war.Defender)
+      .Overwhelming().Build();
+    var total = new WorldBuilder().WithRegister(world.Register).WithTechniques([.. world.Techniques])
+      .WithCountries([.. world.Countries]).WithWars(overwhelming).Build();
+
+    total.MakePeace(war.Id, prussia.Id, Peace.Annexation());
+
+    Assert.Equal(["Hand loom", "Power loom", "Jenny"], prussia.Knowledge.Known);
+  }
+
+  [Fact]
   public void A_far_stronger_country_that_waits_long_enough_swallows_its_enemy()
   {
     var (world, prussia, france) = Rivals(10_000, 1_000);
@@ -971,6 +1060,33 @@ public class WorldTests
   #endregion
 
   #region Methods
+
+  /// <summary>
+  /// Prussia, knowing the hand loom, at war with a France that knows the hand
+  /// loom, the power loom and the jenny and works power looms in Alsace.
+  /// </summary>
+  private static (World World, Country Prussia, Province Alsace, List<Technique> Catalogue) Conquest()
+  {
+    var (register, cloth, machinery) = PowerWeaving();
+    List<Technique> catalogue =
+    [
+      Technique.Of("Hand loom", cloth.Id, ProductiveForm.Handicraft, Quantity.Of(0.5m, Yard), 0m, [], []),
+      Technique.Of("Power loom", cloth.Id, ProductiveForm.MachineIndustry, Quantity.Of(2m, Yard), 0m,
+        [Stock.Of(machinery.Id, Quantity.Of(0.5m, Machine))], []),
+      Technique.Of("Jenny", machinery.Id, ProductiveForm.Manufacture, Quantity.Of(1m, Machine), 0m, [], [])
+    ];
+    var mills = new BranchBuilder().Producing(cloth.Id).WithMeans(catalogue[1].EquipFor(100))
+      .WorkedBy(SocialClass.Proletariat, 100).WithOutputPerHour(catalogue[1].OutputPerHour).Build();
+    var alsace = new ProvinceBuilder().WithName("Alsace").Working(mills).Build();
+    var prussia = new CountryBuilder().WithName("Prussia").Knowing("Hand loom").Build();
+    var france = new CountryBuilder().WithName("France").Knowing("Hand loom", "Power loom", "Jenny")
+      .WithProvinces(alsace, new ProvinceBuilder().WithName("Paris").Build()).Build();
+    var war = new WarBuilder().WithAggressor(prussia.Id).WithDefender(france.Id).WithMomentum(30).Build();
+    var world = new WorldBuilder().WithRegister(register).WithTechniques([.. catalogue]).WithCountries(prussia, france)
+      .WithWars(war).Build();
+
+    return (world, prussia, alsace, catalogue);
+  }
 
   /// <summary>A one-province country of these classes, holding nothing.</summary>
   private static Country Nation(string name, params ClassPresence[] presences)
@@ -1051,7 +1167,8 @@ public class WorldTests
   {
     var (register, corn, cloth, iron) = Fed();
     var smelting = Technique.Of("Smelting", iron.Id, ProductiveForm.Cooperation, Quantity.Of(0.01m, Tonne), 0m, [], []);
-    var russia = Serfs(100);
+    var russia = new CountryBuilder().WithName("Russia").Knowing("Smelting")
+      .WithProvinces(new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Serfs, 100)).Build()).Build();
     var world = new WorldBuilder().WithRegister(register).WithTechniques(smelting)
       .WithSubsistence(Basket(corn, cloth)).WithCountries(russia).Build();
 
@@ -1063,11 +1180,11 @@ public class WorldTests
     return Value.CrystallisedFrom(LaborTime.FromHours(hours));
   }
 
-  /// <summary>A hundred journeymen at a known technique.</summary>
+  /// <summary>A hundred proletarians at a known technique, a class the power loom can be worked by.</summary>
   private static Branch HandWeavers(Commodity cloth, Technique technique)
   {
     return new BranchBuilder().Producing(cloth.Id).WithMeans(technique.EquipFor(100))
-      .WorkedBy(SocialClass.Journeymen, 100).WithOutputPerHour(technique.OutputPerHour).Build();
+      .WorkedBy(SocialClass.Proletariat, 100).WithOutputPerHour(technique.OutputPerHour).Build();
   }
 
   /// <summary>Cloth worth two hours a yard, and the machinery a power loom stands on.</summary>

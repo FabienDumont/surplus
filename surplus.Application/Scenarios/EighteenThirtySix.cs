@@ -113,7 +113,10 @@ public static class EighteenThirtySix
     );
   }
 
-  /// <summary>Every quantity per hand, per day; output per hour times twelve is output per hand per day.</summary>
+  /// <summary>
+  /// Every quantity per hand, per day; output per hour times twelve is output
+  /// per hand per day. Every technique comes after the ones it grows out of.
+  /// </summary>
   private static IReadOnlyList<Technique> Techniques(CommodityRegister register)
   {
     var corn = Named(register, "Corn").Id;
@@ -125,18 +128,21 @@ public static class EighteenThirtySix
     return
     [
       Technique.Of("Peasant tillage", corn, ProductiveForm.Handicraft, Quantity.Of(0.00625m, Tonne), 0m, [], []),
-      Technique.Of("Large farming", corn, ProductiveForm.Cooperation, Quantity.Of(0.01m, Tonne), 0m, [], []),
+      Technique.Of("Large farming", corn, ProductiveForm.Cooperation, Quantity.Of(0.01m, Tonne), 0m, [], [])
+        .DevelopedFrom(LaborTime.FromHours(50_000_000m), "Peasant tillage"),
       Technique.Of("Fibre growing", fibre, ProductiveForm.Cooperation, Quantity.Of(0.5m, Kilogram), 0m, [], []),
       Technique.Of(
         "Hand loom", cloth, ProductiveForm.Handicraft, Quantity.Of(0.5m, Metre), 0m, [],
         [Stock.Of(fibre, Quantity.Of(3m, Kilogram))]),
-      Technique.Of(
-        "Power loom", cloth, ProductiveForm.MachineIndustry, Quantity.Of(2m, Metre), 0.002m,
-        [Stock.Of(machinery, Quantity.Of(0.5m, Machine))], [Stock.Of(fibre, Quantity.Of(12m, Kilogram))]),
       Technique.Of("Iron working", iron, ProductiveForm.Cooperation, Quantity.Of(0.01m, Tonne), 0m, [], []),
       Technique.Of(
-        "Machine shop", machinery, ProductiveForm.Manufacture, Quantity.Of(0.0005m, Machine), 0m, [],
-        [Stock.Of(iron, Quantity.Of(0.006m, Tonne))]),
+          "Machine shop", machinery, ProductiveForm.Manufacture, Quantity.Of(0.0005m, Machine), 0m, [],
+          [Stock.Of(iron, Quantity.Of(0.006m, Tonne))])
+        .DevelopedFrom(LaborTime.FromHours(1_000_000m), "Iron working"),
+      Technique.Of(
+          "Power loom", cloth, ProductiveForm.MachineIndustry, Quantity.Of(2m, Metre), 0.002m,
+          [Stock.Of(machinery, Quantity.Of(0.5m, Machine))], [Stock.Of(fibre, Quantity.Of(12m, Kilogram))])
+        .DevelopedFrom(LaborTime.FromHours(20_000_000m), "Hand loom", "Machine shop"),
       Technique.Of("Carting", Named(register, "Carriage").Id, ProductiveForm.Cooperation, Quantity.Of(0.1m, Load), 0m, [], [])
     ];
   }
@@ -173,6 +179,7 @@ public static class EighteenThirtySix
       Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism).Relieving(), lancashire
     );
     country.Annex(kent);
+    LearnAll(country, techniques);
 
     // Thirty days of each province's own need, the rest where it is made.
     LayUp(lancashire, Named(register, "Corn"), 13_125m);
@@ -220,6 +227,7 @@ public static class EighteenThirtySix
       "United States", CountryControl.Ai, Government.Of(GovernmentForm.Republic, Ideology.Liberalism), newEngland
     );
     country.Annex(carolina);
+    LearnAll(country, techniques);
 
     LayUp(newEngland, Named(register, "Corn"), 75_000m);
     LayUp(carolina, Named(register, "Corn"), 37_500m);
@@ -263,6 +271,11 @@ public static class EighteenThirtySix
     );
     country.Annex(ukraine);
 
+    foreach (var name in new[] { "Peasant tillage", "Fibre growing", "Hand loom", "Iron working", "Carting" })
+    {
+      country.Learn(Named(techniques, name));
+    }
+
     LayUp(muscovy, Named(register, "Corn"), 90_000m);
     LayUp(ukraine, Named(register, "Corn"), 45_000m);
     LayUp(muscovy, Named(register, "Cloth"), 1_800_000m);
@@ -284,6 +297,14 @@ public static class EighteenThirtySix
         technique.OutputPerHour
       )
     );
+  }
+
+  private static void LearnAll(Country country, IReadOnlyList<Technique> techniques)
+  {
+    foreach (var technique in techniques)
+    {
+      country.Learn(technique);
+    }
   }
 
   private static void LayUp(Province province, Commodity commodity, decimal amount)
