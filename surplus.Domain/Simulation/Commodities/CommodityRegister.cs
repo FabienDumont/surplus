@@ -1,4 +1,5 @@
 using Surplus.Domain.SharedKernel;
+using Surplus.Domain.Simulation.Production;
 
 namespace Surplus.Domain.Simulation.Commodities;
 
@@ -70,6 +71,40 @@ public sealed class CommodityRegister
   public Value ValueOf(IEnumerable<Stock> stocks)
   {
     return stocks.Aggregate(Value.None, (total, stock) => total + ValueOf(stock));
+  }
+
+  /// <summary>
+  /// Settles what each commodity is worth from what it cost to produce this
+  /// period: the whole labour, dead and living, that went into the whole mass,
+  /// spread over the whole mass. It is an average weighted by output, so a
+  /// large producer weighs more than a small one, and the only way to pull it
+  /// down is to produce below it.
+  /// Every average is taken before any commodity is revalued. The dead labour
+  /// in today's yields was counted at yesterday's values, and every commodity
+  /// must be measured against the same yesterday. A commodity nobody produced
+  /// keeps the value it had.
+  /// </summary>
+  public IReadOnlyList<Revaluation> Revalue(IEnumerable<Yield> yields)
+  {
+    var settled = yields
+      .GroupBy(yield => yield.Product.Commodity)
+      .Select(group => (
+        Commodity: Get(group.Key),
+        PerUnit: group.Aggregate(LaborTime.None, (total, yield) => total + yield.Composition.Product.Magnitude) /
+                 group.Sum(yield => yield.Product.Quantity.Amount)))
+      .ToList();
+
+    return
+    [
+      .. settled.Select(settlement =>
+      {
+        var before = settlement.Commodity.Value;
+
+        settlement.Commodity.Revalue(settlement.PerUnit);
+
+        return new Revaluation(settlement.Commodity.Id, before, settlement.Commodity.Value);
+      })
+    ];
   }
 
   public override string ToString()

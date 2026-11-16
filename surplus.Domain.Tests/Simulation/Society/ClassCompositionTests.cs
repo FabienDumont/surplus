@@ -125,6 +125,17 @@ public class ClassCompositionTests
   }
 
   [Fact]
+  public void A_class_that_grows_or_declines_keeps_its_place_and_a_newcomer_comes_last()
+  {
+    var composition = new ClassCompositionBuilder().Build()
+      .Grown(SocialClass.Serfs, 9).Declined(SocialClass.FeudalLords, 1).Grown(SocialClass.Merchants, 3);
+
+    Assert.Equal(
+      [SocialClass.Serfs, SocialClass.FeudalLords, SocialClass.Clergy, SocialClass.Merchants],
+      composition.Presences.Select(presence => presence.Class));
+  }
+
+  [Fact]
   public void A_class_reduced_to_no_one_leaves_the_composition()
   {
     var without = new ClassCompositionBuilder().Build().Declined(SocialClass.Clergy, 10);

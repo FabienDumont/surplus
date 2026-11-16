@@ -1,8 +1,13 @@
+using Surplus.Application.Reporting;
 using Surplus.Application.Scenarios;
 using Surplus.Domain.GameEngine;
 using Surplus.Domain.SharedKernel;
 using Surplus.Domain.Simulation;
 using Surplus.Domain.Simulation.Chronicle;
+using Surplus.Domain.Simulation.Countries;
+using Surplus.Domain.Simulation.Politics;
+using Surplus.Domain.Simulation.Production;
+using Surplus.Domain.Simulation.Society;
 
 namespace Surplus.Application;
 
@@ -13,8 +18,11 @@ namespace Surplus.Application;
 /// through a day without keeping the calendar, so joining them falls to the
 /// application layer.
 /// A session is always paused between calls. Time passes only inside
-/// <see cref="Advance" />, so whatever the player does between two advances
-/// happens on a stopped clock.
+/// <see cref="Advance" /> and <see cref="AdvanceUntil" />, so whatever the
+/// player orders between two advances happens on a stopped clock.
+/// Every order acts for the country the human plays and for no other. The
+/// session adds no rule of its own to any of them: it finds the country, and
+/// the domain decides whether the order can be carried out.
 /// </summary>
 public sealed class Session
 {
@@ -52,6 +60,27 @@ public sealed class Session
   /// <summary>Lets so many days pass and reports each of them.</summary>
   public IReadOnlyList<DayReport> Advance(int days)
   {
+    return Pass(days, _ => false);
+  }
+
+  /// <summary>
+  /// Lets up to so many days pass, and stops after the first one that
+  /// interrupts: a player who asked for a year does not want to read of a
+  /// famine at home eleven months after it began.
+  /// </summary>
+  public Passage AdvanceUntil(int days, Func<DayReport, bool> interrupts)
+  {
+    var before = World.Played?.Store;
+    var interrupted = false;
+
+    var reports = Pass(days, report => interrupted = interrupts(report));
+
+    return new Passage(reports, before, interrupted);
+  }
+
+  /// <summary>Every day passes through here, whichever way time was asked to pass.</summary>
+  private List<DayReport> Pass(int days, Func<DayReport, bool> stopsAfter)
+  {
     if (days < 1)
     {
       throw new DomainException("Time is advanced by at least one day.");
@@ -69,7 +98,15 @@ public sealed class Session
       for (var day = 0; day < days; day++)
       {
         Game.AdvanceOneDay();
-        reports.Add(World.Elapse(Game.CurrentDate));
+
+        var report = World.Elapse(Game.CurrentDate);
+
+        reports.Add(report);
+
+        if (stopsAfter(report))
+        {
+          break;
+        }
       }
     }
     finally
@@ -78,6 +115,63 @@ public sealed class Session
     }
 
     return reports;
+  }
+
+  public void Enact(Law law)
+  {
+    Played().Enact(law);
+  }
+
+  public void Repeal(Law law)
+  {
+    Played().Repeal(law);
+  }
+
+  public void TakeForm(GovernmentForm form)
+  {
+    Played().TakeForm(form);
+  }
+
+  public void Adopt(Ideology ideology)
+  {
+    Played().Adopt(ideology);
+  }
+
+  /// <summary>Opens a branch by a technique of the catalogue; what a hand costs to keep is the world's to say.</summary>
+  public void OpenBranch(
+    ProvinceId province, string technique, SocialClass workforce, int hands, LaborTime workingDay)
+  {
+    World.OpenBranch(Played().Id, province, World.Technique(technique), workforce, hands, workingDay);
+  }
+
+  public void CloseBranch(ProvinceId province, CommodityId commodity)
+  {
+    Played().CloseBranch(province, commodity);
+  }
+
+  public void Employ(ProvinceId province, CommodityId commodity, int hands)
+  {
+    Played().Employ(province, commodity, hands);
+  }
+
+  public void LayOff(ProvinceId province, CommodityId commodity, int hands)
+  {
+    Played().LayOff(province, commodity, hands);
+  }
+
+  public void Reequip(ProvinceId province, CommodityId commodity, string technique)
+  {
+    Played().Reequip(province, commodity, World.Technique(technique));
+  }
+
+  public void FixTheWorkingDay(ProvinceId province, CommodityId commodity, LaborTime workingDay)
+  {
+    Played().FixTheWorkingDay(province, commodity, workingDay);
+  }
+
+  private Country Played()
+  {
+    return World.Played ?? throw new DomainException("No one is played: the state you sat in is no more.");
   }
 
   #endregion

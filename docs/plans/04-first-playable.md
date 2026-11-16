@@ -3,7 +3,7 @@
 ## Goal
 
 Run the game. After this plan `dotnet run --project surplus.Console` starts the 1836 scenario and lets
-a person advance the calendar and look at the world. Nothing can be commanded yet (plan 08); this is
+a person advance the calendar and look at the world. Nothing can be commanded yet (plan 07); this is
 the moment the model first moves in front of someone.
 
 Three pieces: the application layer that joins the clock to the world, the scenario, and a read-only
@@ -38,7 +38,7 @@ public Game Game { get; }
 public World World { get; }
 
 public static Session Begin(Scenario scenario);        // Game.Start(scenario.Name, scenario.StartDate)
-public static Session Resume(Game game, World world);  // for loading, plan 10
+public static Session Resume(Game game, World world);  // for loading, plan 11
 
 /// Lets so many days pass and reports each of them.
 public IReadOnlyList<DayReport> Advance(int days);
@@ -128,7 +128,7 @@ starting figures for Corn and Cloth.
 
 ## Out of scope
 
-Commands that change anything (plan 08). The AI (plan 09). Saving (plan 10). A test project for the
+Commands that change anything (plans 07 and 08). The AI (plan 10). Saving (plan 11). A test project for the
 console.
 
 ## Done when

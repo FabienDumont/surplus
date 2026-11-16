@@ -43,11 +43,19 @@ public static class EighteenThirtySix
     var techniques = Techniques(register);
 
     var world = World.Assemble(
-      register, techniques,
+      register, techniques, Basket(register),
       [UnitedKingdom(register, techniques), UnitedStates(register, techniques), Russia(register, techniques)]
     );
 
     return new Scenario("1836", GameDate.Of(1836, 1, 1), world);
+  }
+
+  /// <summary>One head's day: 25 kg of corn and half a metre of cloth.</summary>
+  private static Subsistence Basket(CommodityRegister register)
+  {
+    return Subsistence.Of(
+      Stock.Of(Named(register, "Corn").Id, Quantity.Of(0.025m, Tonne)),
+      Stock.Of(Named(register, "Cloth").Id, Quantity.Of(0.5m, Metre)));
   }
 
   private static CommodityRegister Commodities()

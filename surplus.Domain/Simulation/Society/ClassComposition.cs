@@ -164,13 +164,30 @@ public sealed record ClassComposition
     return Declined(from, heads).Grown(into, heads);
   }
 
+  /// <summary>
+  /// The same composition with one class at a new strength. A class already
+  /// present keeps its place, so that a people that merely grows is listed as
+  /// it was; a newcomer is listed last.
+  /// </summary>
   private ClassComposition Rebuilt(SocialClass socialClass, int heads)
   {
-    var others = _presences.Where(presence => presence.Class != socialClass);
+    List<ClassPresence> rebuilt = [.. _presences];
+    var index = rebuilt.FindIndex(presence => presence.Class == socialClass);
 
-    return new ClassComposition(
-      [..heads > 0 ? others.Append(ClassPresence.Of(socialClass, heads)) : others]
-    );
+    if (heads == 0)
+    {
+      rebuilt.RemoveAt(index);
+    }
+    else if (index < 0)
+    {
+      rebuilt.Add(ClassPresence.Of(socialClass, heads));
+    }
+    else
+    {
+      rebuilt[index] = ClassPresence.Of(socialClass, heads);
+    }
+
+    return new ClassComposition(rebuilt);
   }
 
   public bool Equals(ClassComposition? other)

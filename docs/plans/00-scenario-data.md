@@ -1,7 +1,7 @@
 # 00 — Scenario data: "1836"
 
-Reference numbers for the one starting scenario. No code is written from this file alone; plans 04, 05
-and 06 point here. The figures are tuned so that every country feeds and clothes itself with a small
+Reference numbers for the one starting scenario. No code is written from this file alone; plans 04, 05,
+06, 09, 10 and 11 point here. The figures are tuned so that every country feeds and clothes itself with a small
 surplus. They are not history, and nobody should correct them toward history.
 
 Start date: **1836-01-01**. Game name: **"1836"**. Every working day is **12 hours**. Every branch
@@ -28,6 +28,7 @@ preference; the game counts in these.
 ## Techniques (introduced in plan 03)
 
 All quantities are **per hand, per day**. Output per hour times 12 gives output per hand per day.
+The catalogue is in this order. Every technique comes after the ones it develops from (plan 11).
 
 | Name            | Produces  | Form            | Output per hour | Instruments per hand | Daily wear | Material per hand per day |
 |-----------------|-----------|-----------------|-----------------|----------------------|------------|---------------------------|
@@ -35,9 +36,20 @@ All quantities are **per hand, per day**. Output per hour times 12 gives output 
 | Large farming   | Corn      | Cooperation     | 0.01 t          | none                 | 0          | none                      |
 | Fibre growing   | Fibre     | Cooperation     | 0.5 kg          | none                 | 0          | none                      |
 | Hand loom       | Cloth     | Handicraft      | 0.5 m           | none                 | 0          | 3 kg of Fibre             |
-| Power loom      | Cloth     | MachineIndustry | 2 m             | 0.5 Machinery        | 0.002      | 12 kg of Fibre            |
 | Iron working    | Iron      | Cooperation     | 0.01 t          | none                 | 0          | none                      |
 | Machine shop    | Machinery | Manufacture     | 0.0005 machine  | none                 | 0          | 0.006 t of Iron           |
+| Power loom      | Cloth     | MachineIndustry | 2 m             | 0.5 Machinery        | 0.002      | 12 kg of Fibre            |
+
+**How each technique is found (plan 11).** Elementary techniques develop from nothing. A country
+either knows them from the start or never finds them.
+
+| Name          | Develops from             | Development (h) |
+|---------------|---------------------------|-----------------|
+| Large farming | Peasant tillage           | 50,000,000      |
+| Machine shop  | Iron working              | 1,000,000       |
+| Power loom    | Hand loom, Machine shop   | 20,000,000      |
+
+Peasant tillage, Fibre growing, Hand loom and Iron working are elementary.
 
 ## Subsistence (introduced in plan 06)
 
@@ -109,6 +121,14 @@ Government: `AbsoluteMonarchy`, `Traditionalism`, no laws.
 
 Store: Corn 135,000 t · Cloth 2,700,000 m · Fibre 1,395,000 kg
 
+### What each country knows (plan 11)
+
+| Country        | Knows                                                                                  |
+|----------------|----------------------------------------------------------------------------------------|
+| United Kingdom | all seven                                                                              |
+| United States  | all seven. New England still weaves by hand: knowing a technique is not using it        |
+| Russia         | Peasant tillage, Fibre growing, Hand loom, Iron working                                |
+
 ## Figures the tests can check
 
 These follow arithmetically from the tables. Use them as expected values, with a tolerance of four
@@ -151,3 +171,11 @@ changes**
 
 **A year left alone (plans 02 to 06):** advancing 365 days with no player action and no AI, no branch
 stands idle and nobody goes without in any country.
+
+**Development (plan 11):**
+- Russia's 62,000 serfs on corn put 744,000 h a day toward large farming. At the feudal drive of 0.1
+  that counts as 74,400 h, so Russia finds it on the 673rd day (50,000,000 ÷ 74,400 = 672.04).
+- Nothing else is within Russia's reach:
+  - It has no iron branch, so nothing brings it closer to the machine shop.
+  - The power loom needs the machine shop first.
+- A year left alone therefore finds nothing out.

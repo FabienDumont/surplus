@@ -16,12 +16,31 @@ written. Execute them **in order**: each one builds on the types the previous on
 | 04 | [First playable](04-first-playable.md)                 | Application layer, the 1836 scenario, a read-only console      |
 | 05 | [Social value](05-social-value.md)                     | Values are settled daily from what production actually cost    |
 | 06 | [Subsistence and population](06-subsistence-and-population.md) | People eat, starve, grow; necessary labour is derived     |
-| 07 | [War](07-war.md)                                       | Wars are fought from class structure and redraw the map        |
-| 08 | [Player commands](08-player-commands.md)               | The console can act, not just watch                            |
-| 09 | [AI](09-ai.md)                                         | AI countries provision themselves and end the wars they win    |
-| 10 | [Save and load](10-save-and-load.md)                   | A game survives the process                                    |
+| 07 | [Player orders](07-player-orders.md)                   | The player runs their economy and state; time passes in digests that stop on trouble |
+| 08 | [War](08-war.md)                                       | Wars are fought from class structure and redraw the map; the player can wage them |
+| 09 | [Revenues and subsistence](09-revenues-and-subsistence.md) | Each class eats through its own revenue; the unemployed have no title; poor relief, pauperism |
+| 10 | [Circulation](10-circulation.md)                       | Stores per province; goods cross borders at the pace the mode allows, carried by carters |
+| 11 | [Known techniques](11-known-techniques.md)             | Each country knows some techniques and finds out others by working |
+| 12 | [AI](12-ai.md)                                         | AI countries provision themselves and end the wars they win    |
+| 13 | [Save and load](13-save-and-load.md)                   | A game survives the process                                    |
 
-After plan 04 the game runs. Plans 05 to 10 each add one thing to a running game.
+After plan 04 the game runs, and after plan 07 it can be played. Plans 05 to 13 each add one thing
+to a running game.
+
+### Planned, not yet written
+
+- **Goals and pressure.** Even with orders, a scenario that feeds itself at rest gives the player no
+  reason to act. Two things are missing. One is objectives or a score, read off the model and not
+  bolted on: accumulation, the rate of surplus-value, the share of the world's production. The other
+  is a scenario that is not balanced at rest, for example a Britain whose people outgrow its corn
+  unless it acts. Design this after plan 07, once orders exist to answer the pressure with.
+- **A real interface.** A full-screen terminal interface or a small web page instead of scrolling
+  text, once there is something worth playing in it.
+- **Earlier start dates.** Scenarios set in the 1st or 11th century, with their own commodities,
+  techniques and starting knowledge per country. This needs a decision on the time scale, because a
+  day per period makes centuries unplayable. The options are a coarser period (a season or a year)
+  or a speed control. It builds on plan 11 and should follow plan 13, so that saves already carry
+  what a country knows.
 
 ## Baseline
 
@@ -76,7 +95,7 @@ the domain already enforces, stop and report instead of removing the rule.
   builders call `Load` so tests can start from any state). No mocking library, no new NuGet packages.
 - **Determinism.** No `Random`, no `DateTime.Now`, no dependence on dictionary enumeration order where
   the order can change an outcome. The same world advanced the same number of days must end in the
-  same state, always. Plan 10 tests this.
+  same state, always. Plan 13 tests this.
 
 ## Design decisions already made
 
@@ -87,9 +106,9 @@ unworkable, report it.
 2. **The world is the simulation's root.** `Game` stays ignorant of the simulation. `World` holds
    everything else and exposes `Elapse(GameDate)`. The application layer advances the clock and then
    tells the world a day has passed.
-3. **Stores are national.** A country holds one `Store`. Provinces produce into it and draw from it.
-   There is no transport inside a country and **no trade between countries**: each country lives on
-   what it makes.
+3. **Stores are national** until plan 10. A country holds one `Store`. Provinces produce into it
+   and draw from it. From plan 10 each province keeps its own, and goods cross borders inside a
+   country by carriage. There is **no trade between countries**: each country lives on what it makes.
 4. **Value is world-wide.** The single `CommodityRegister` stays single. A commodity has one value,
    the average over every branch in the world that produced it that day.
 5. **Inputs are all-or-nothing.** A branch that cannot draw its whole day's material from the store
@@ -100,9 +119,12 @@ unworkable, report it.
 7. **Means scale with hands.** A branch's means of production are proportional to the hands it
    employs. Taking on hands requires the extra instruments from the store.
 8. **Techniques are a catalogue.** How much a branch yields per hour is never typed in by a player.
-   It comes from a `Technique` in the world's catalogue.
+   It comes from a `Technique` in the world's catalogue, and from plan 11 on only from one the
+   country knows. Techniques are found by labour done in the trades they grow out of, never by a
+   research budget.
 9. **Everyone takes the same basket.** One subsistence basket per head per day, the same for every
-   class. The surplus product is whatever is left in the store.
+   class. From plan 09 a head eats only by a title its revenue gives it, so a worker without a wage
+   has none. The surplus product is whatever is left in the store.
 10. **Months matter.** Fighting and population growth happen on the first day of each month.
     Everything else happens daily.
 11. **Reports are sentences.** `World.Elapse` returns a `DayReport` listing `Occurrence` records whose
@@ -112,14 +134,21 @@ unworkable, report it.
 
 These are deliberate gaps. Do not fix them in passing; they are the work that follows the basis.
 
-- National stores with a world-wide value is not consistent: a market value presupposes a market, and
-  nothing crosses a border yet. Trade is the first thing to build after these plans.
-- The surplus product lands in a national store rather than with the class that appropriates it. There
-  is no money, no wage, no profit paid to anyone, and so no class-specific consumption.
+- A world-wide value is not consistent with goods that cross no border between countries: a market
+  value presupposes a market. Trade between countries is the first thing to build after these plans.
+- Carriage adds labour, but its value is not added to the goods it carried. Corn in Lancashire is
+  worth what corn in Kent is worth, because value stays world-wide and local value needs a market.
+- The surplus product lands in a common store, and the appropriators are only served first from it.
+  There is no money, and wages and profit are titles to the basket, not sums paid. Every class takes
+  the same basket, so the appropriators consume no luxuries.
+- A wage feeds one head. Families and dependants are not modelled.
 - Lengthening the working day raises output without raising the material consumed, because a branch's
   material is fixed per hand per day.
 - A province holds one branch per commodity with one workforce class, so a province cannot run a
   handicraft and a factory in the same trade side by side.
 - Either belligerent may take a white peace at any time, including the one that is losing.
+- Knowledge of a technique moves between countries only by conquest. The only thing that drives
+  development is the mode of production, applied as a flat weight. Pressures within a mode, such as
+  labour shortages or the rate of profit, do not speed it up.
 - Class structure changes only through laws, starvation and growth. The ruin of petty producers by
   cheaper competitors, the reason the `Yield` comments give for the whole movement, is not simulated.

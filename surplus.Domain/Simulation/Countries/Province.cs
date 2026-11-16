@@ -176,6 +176,25 @@ public sealed class Province
   }
 
   /// <summary>
+  /// Fixes the length of the working day in the branch working this commodity.
+  /// A day shorter than what keeping a hand cost yesterday is still fixed: the
+  /// figure is bookkeeping, reset from the basket the next day, and a Factory
+  /// Act is not to be blocked by it. So necessary labour is first brought down
+  /// to the new day where it would stand above it.
+  /// </summary>
+  public void FixTheWorkingDay(CommodityId commodity, LaborTime workingDay)
+  {
+    var branch = BranchWorking(commodity);
+
+    if (!workingDay.IsNone && branch.NecessaryLabor.CompareTo(workingDay) > 0)
+    {
+      branch.CostsToKeepAHand(workingDay);
+    }
+
+    branch.FixTheWorkingDay(workingDay);
+  }
+
+  /// <summary>
   /// Works every branch for one period. The yields are individual: what each
   /// branch's own labour cost it. What any of it is worth is settled elsewhere,
   /// across all the provinces supplying the same market.

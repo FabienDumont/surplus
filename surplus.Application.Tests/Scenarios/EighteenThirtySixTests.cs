@@ -1,4 +1,6 @@
+using Surplus.Application.Reporting;
 using Surplus.Application.Scenarios;
+using Surplus.Application.Settings;
 using Surplus.Domain.GameEngine;
 using Surplus.Domain.Simulation;
 using Surplus.Domain.Simulation.Chronicle;
@@ -67,14 +69,14 @@ public class EighteenThirtySixTests
   }
 
   /// <summary>
-  /// Nobody eats or wears anything yet, so Corn and Cloth rise by the whole
-  /// day's product. Fibre, Iron and Machinery rise by what was made less what
-  /// production used up.
+  /// Corn and Cloth rise by the day's product less what the people ate and
+  /// wore: the surplus product. Fibre, Iron and Machinery rise by what was made
+  /// less what production used up.
   /// </summary>
   [Theory]
-  [InlineData("United Kingdom", 5_400, 120_000, 3_000, 6, 7)]
-  [InlineData("United States", 3_840, 78_000, 21_000, 18, 6)]
-  [InlineData("Russia", 4_650, 93_000, 1_500, 0, 0)]
+  [InlineData("United Kingdom", 400, 20_000, 3_000, 6, 7)]
+  [InlineData("United States", 90, 3_000, 21_000, 18, 6)]
+  [InlineData("Russia", 150, 3_000, 1_500, 0, 0)]
   public void Each_country_produces_what_the_scenario_says_in_a_day(
     string name, int corn, int cloth, int fibre, int iron, int machinery)
   {
@@ -105,6 +107,112 @@ public class EighteenThirtySixTests
   }
 
   [Fact]
+  public void After_one_day_each_commodity_is_worth_what_the_scenario_predicts()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    world.Elapse(GameDate.Of(1836, 1, 2));
+
+    Assert.Equal(
+      new Dictionary<string, decimal>
+      {
+        ["Corn"] = 130.4536m,
+        ["Cloth"] = 2.4175m,
+        ["Fibre"] = 2m,
+        ["Iron"] = 100m,
+        ["Machinery"] = 2_100m
+      },
+      Values(world));
+  }
+
+  [Fact]
+  public void Values_hold_steady_while_nothing_changes()
+  {
+    var session = Session.Begin(EighteenThirtySix.Build());
+
+    session.Advance(1);
+    var first = Values(session.World);
+    session.Advance(1);
+    var second = Values(session.World);
+    session.Advance(28);
+
+    Assert.Equal(first, second);
+    Assert.Equal(first, Values(session.World));
+  }
+
+  [Fact]
+  public void The_first_day_reports_the_values_production_moved()
+  {
+    var report = Assert.Single(Session.Begin(EighteenThirtySix.Build()).Advance(1));
+
+    Assert.Equal(
+      ["Cloth now holds 2.42h of labour per m, up from 2.00h.", "Corn now holds 130.45h of labour per t, up from 120.00h."],
+      report.Of<CommodityWasRevalued>().Select(occurrence => occurrence.ToString()));
+  }
+
+  [Fact]
+  public void After_one_day_necessary_labour_is_what_the_scenario_predicts()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    world.Elapse(GameDate.Of(1836, 1, 2));
+
+    Assert.All(
+      world.Countries.SelectMany(country => country.Provinces).SelectMany(province => province.Branches),
+      branch => Assert.Equal(4.4701m, decimal.Round(branch.NecessaryLabor.Hours, 4)));
+  }
+
+  [Fact]
+  public void Nobody_goes_without_in_a_year_left_alone()
+  {
+    var reports = Session.Begin(EighteenThirtySix.Build()).Advance(365);
+
+    Assert.Empty(reports.SelectMany(report => report.Of<PeopleWentWithout>()));
+    Assert.Empty(reports.SelectMany(report => report.Of<BranchStoodIdle>()));
+  }
+
+  [Fact]
+  public void Every_country_is_more_populous_after_a_year()
+  {
+    var session = Session.Begin(EighteenThirtySix.Build());
+    var before = session.World.Countries.ToDictionary(country => country.Name, country => country.Population);
+
+    session.Advance(365);
+
+    Assert.All(session.World.Countries, country => Assert.True(country.Population > before[country.Name]));
+  }
+
+  [Fact]
+  public void A_month_left_alone_runs_its_course_uninterrupted()
+  {
+    var session = Session.Begin(EighteenThirtySix.Build());
+
+    var passage = session.AdvanceUntil(31, report => Significance.CallsForAttention(report, null, session.World));
+
+    Assert.False(passage.Interrupted);
+    Assert.Equal(GameDate.Of(1836, 2, 1), session.Game.CurrentDate);
+  }
+
+  [Fact]
+  public void A_month_of_the_scenario_digests_into_a_few_lines()
+  {
+    var session = Session.Begin(EighteenThirtySix.Build());
+
+    var passage = session.AdvanceUntil(31, report => Significance.CallsForAttention(report, null, session.World));
+    var digest = Digest.Of(passage, session.World, UnitSystem.Metric);
+
+    Assert.Equal(
+      [
+        "Cloth: 2.00 → 2.42 h per m",
+        "Corn: 120.00 → 130.45 h per t",
+        "Population grew: United Kingdom +200, United States +150, Russia +180.",
+        "United Kingdom: 200,200 souls, 32 days of subsistence in store, 133,546 without work.",
+        "Store: Corn +12,400 t, Cloth +620,000 m, Fibre +93,000 kg, Iron +186 t, Machinery +217 machine"
+      ],
+      digest.Lines);
+  }
+
+  [Fact]
   public void Every_build_is_a_fresh_world()
   {
     Assert.NotSame(EighteenThirtySix.Build().World, EighteenThirtySix.Build().World);
@@ -117,6 +225,13 @@ public class EighteenThirtySixTests
   private static Country Named(World world, string name)
   {
     return world.Countries.Single(country => country.Name == name);
+  }
+
+  /// <summary>Each commodity's value in hours per unit, to four decimals.</summary>
+  private static Dictionary<string, decimal> Values(World world)
+  {
+    return world.Register.Commodities.ToDictionary(
+      commodity => commodity.Name, commodity => decimal.Round(commodity.Value.Magnitude.Hours, 4));
   }
 
   private static Dictionary<string, decimal> Holdings(World world, Country country)

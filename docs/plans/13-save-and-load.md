@@ -1,4 +1,4 @@
-# 10 — Save and load
+# 13 — Save and load
 
 ## Goal
 
@@ -13,7 +13,7 @@ identically from then on.
 - Every `Load` factory and every value-object factory in the domain; the snapshot must be able to
   feed all of them. In particular: `Game.Load`, `World.Load`, `Country.Load`, `Province.Load`,
   `Branch.Load`, `War.Load`, `Commodity.Load`, `CommodityRegister.Of`, `Store.Of`, `Technique.Of`,
-  `Subsistence.Of`, `Government.Of`, `ClassComposition.Of`, `ClassPresence.Of`,
+  `Subsistence.Of`, `Knowledge.Of`, `Technique.DevelopedFrom`, `Government.Of`, `ClassComposition.Of`, `ClassPresence.Of`,
   `MeansOfProduction.SetInMotion`, `Stock.Of`, `Quantity.Of`, `UnitOfMeasure.Of`, `UseValue.Of`,
   `Value.CrystallisedFrom`, `LaborTime.FromHours`, `Peace.White` / `Ceding` / `Annexation`,
   `Id<T>.From`, `GameDate.Of`
@@ -49,9 +49,12 @@ invariant number formatting (the default).
 
 Rules:
 
-- **Everything that has state is saved**, including concluded wars and their peace, techniques, the
-  subsistence basket, each branch's current means, hands, working day, necessary labour and output per
-  hour, and each commodity's current value.
+- **Everything that has state is saved**, including concluded wars and their peace, techniques (with
+  what each develops from and how much labour it takes), the occurrences waiting for the next day
+  (plan 08), each province's own store, the borders and the haulage (plan 10), what each country
+  knows and what it has under way, the subsistence basket, each
+  branch's current means, hands, working day, necessary labour and output per hour, and each
+  commodity's current value.
 - **Order is preserved wherever order can change an outcome**: countries, provinces within a country,
   branches within a province, class presences within a composition, wars, techniques, instruments and
   material within means. Store contents and register contents are written sorted by commodity id so
@@ -82,6 +85,7 @@ A missing file or an unreadable one prints one line and leaves the current sessi
 - `A_war_in_progress_survives_the_save` (momentum intact, still open)
 - `A_concluded_war_survives_the_save_with_its_peace` (one test per kind of peace)
 - `A_reequipped_branch_survives_the_save` (means, output per hour)
+- `What_a_country_knows_and_is_finding_out_survives_the_save` (known in order, labour spent under way)
 - `An_annexed_country_stays_gone_after_the_save`
 - `A_session_in_which_no_one_is_played_survives_the_save`
 - `The_same_state_is_always_written_the_same_way` (two `Write` calls on one session are equal)

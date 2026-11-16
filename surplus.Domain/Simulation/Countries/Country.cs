@@ -20,6 +20,20 @@ public sealed class Country
 {
   #region Fields
 
+  /// <summary>
+  /// The share of those who went wholly without that die of it in one day. Want
+  /// kills slowly and unevenly, by weakening before it starves; a percent a day
+  /// is a tuned figure, not a demography.
+  /// </summary>
+  private static readonly decimal DeathsOfWant = 0.01m;
+
+  /// <summary>
+  /// How much a fully provided class grows in a month. A tenth of a percent is a
+  /// tuned figure; it is the same for every class because this stage of the
+  /// model gives every class the same basket.
+  /// </summary>
+  private static readonly decimal MonthlyGrowth = 0.001m;
+
   private readonly List<Province> _provinces;
 
   #endregion
@@ -223,6 +237,90 @@ public sealed class Country
   }
 
   /// <summary>
+  /// Gives everyone their day's subsistence, so far as the store can, and
+  /// returns the share provided, from 0 to 1. The basket is taken whole or in
+  /// proportion, never good by good: a people short of cloth does not make it
+  /// up in corn, it goes short of both. What is left in the store after this
+  /// is the surplus product.
+  /// </summary>
+  public decimal Provision(Subsistence subsistence)
+  {
+    var needed = subsistence.For(Population).Where(stock => !stock.IsExhausted).ToList();
+    var provided = needed
+      .Select(stock => Math.Min(1m, Store.AmountOf(stock.Commodity) / stock.Quantity.Amount))
+      .DefaultIfEmpty(1m)
+      .Min();
+
+    // The share is a quotient, and the smallest good must never be asked for a
+    // hair more than the store holds because of how the division rounded.
+    List<Stock> taken =
+    [
+      .. needed.Select(stock => Stock.Of(
+        stock.Commodity,
+        Quantity.Of(Math.Min(stock.Quantity.Amount * provided, Store.AmountOf(stock.Commodity)), stock.Quantity.Unit)))
+    ];
+
+    Store = Store.Drawn(taken);
+
+    return provided;
+  }
+
+  /// <summary>
+  /// Those who went without die of it, a few each day, and the number is
+  /// returned. Those who live on the labour of others are left out: they do not
+  /// starve first, and the model says so by not starving them at all. The dead
+  /// are struck off the branches they worked in.
+  /// </summary>
+  public int LoseTheUnprovided(decimal provided)
+  {
+    if (provided >= 1m)
+    {
+      return 0;
+    }
+
+    var dead = 0;
+
+    foreach (var province in _provinces)
+    {
+      foreach (var presence in province.Composition.Presences.Where(presence => !presence.Profile.AppropriatesSurplus)
+                 .ToList())
+      {
+        var deaths = (int)Math.Floor(presence.Heads * (1m - provided) * DeathsOfWant);
+
+        if (deaths > 0)
+        {
+          province.Decline(presence.Class, deaths);
+          dead += deaths;
+        }
+      }
+    }
+
+    return dead;
+  }
+
+  /// <summary>A fed people multiplies, class by class. Returns by how many.</summary>
+  public int Multiply()
+  {
+    var born = 0;
+
+    foreach (var province in _provinces)
+    {
+      foreach (var presence in province.Composition.Presences.ToList())
+      {
+        var growth = (int)Math.Floor(presence.Heads * MonthlyGrowth);
+
+        if (growth > 0)
+        {
+          province.Grow(presence.Class, growth);
+          born += growth;
+        }
+      }
+    }
+
+    return born;
+  }
+
+  /// <summary>
   /// Sets a branch going by a known technique. Its instruments have to exist
   /// before it can: they are taken from the store, where only past labour in
   /// Department I can have put them. That is accumulation in its plainest
@@ -289,6 +387,12 @@ public sealed class Country
 
     where.Reequip(commodity, means, technique.OutputPerHour);
     Store = Store.Drawn(means.Instruments);
+  }
+
+  /// <summary>Fixes how long a day the hands in one branch work.</summary>
+  public void FixTheWorkingDay(ProvinceId province, CommodityId commodity, LaborTime workingDay)
+  {
+    Governed(province).FixTheWorkingDay(commodity, workingDay);
   }
 
   private Province Governed(ProvinceId province)

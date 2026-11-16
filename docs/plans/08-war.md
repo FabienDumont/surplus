@@ -1,11 +1,12 @@
-# 07 — War
+# 08 — War
 
 ## Goal
 
 Connect war to the world. `War` already knows how momentum moves and what peace it permits, but it is
 handed two bare integers and nothing applies the peace it concludes. After this plan a war is declared
 between two countries of the world, fought monthly with what each society can put under arms, and
-ended by a peace that actually moves provinces or erases a state.
+ended by a peace that actually moves provinces or erases a state. The player can declare war and
+make peace from the console.
 
 ## Read first
 
@@ -16,6 +17,8 @@ ended by a peace that actually moves provinces or erases a state.
   be ceded
 - `surplus.Domain/Simulation/Society/ClassComposition.cs` — `Armable`
 - `World.cs` as left by plan 06
+- `surplus.Application/Session.cs`, `Reporting/Significance.cs` and `Reporting/Digest.cs` as left by
+  plan 07, and the console's numbered listings
 
 ## Changes
 
@@ -108,9 +111,62 @@ first of the month growth and fighting.
 - `When_the_humans_country_is_annexed_no_one_is_played`
 - `A_stranger_to_a_war_cannot_end_it`
 
+## Session and reporting
+
+New orders on `Session`, following plan 07's rule that each order acts for the played country and is
+refused when no one is played:
+
+```csharp
+public War DeclareWarOn(CountryId defender);
+public void MakePeace(WarId war, Peace peace);
+```
+
+The war's occurrences come with their own types, so that `Significance` can tell them apart.
+`World.DeclareWar` and `World.MakePeace` return or record them as follows:
+
+- `Chronicle/WarWasDeclared.cs`: `(string Aggressor, string Defender)`, e.g. *"Russia has declared war
+  on the United States."* `DeclareWar` adds it to the next day's report.
+- `Chronicle/PeaceWasMade.cs`: `(string Winner, string Loser, string Terms)`, e.g. *"The United
+  Kingdom and the United States have made peace: Carolina is ceded to the United Kingdom."* The
+  same applies to `MakePeace`.
+
+Keep these pending occurrences in `World` and emit them first in the next `Elapse`. Plan 13 must then
+save them; say so in the report.
+
+Extend the table in `Significance`:
+
+| Occurrence       | Importance                                   |
+|------------------|----------------------------------------------|
+| `WarWasDeclared` | Urgent if played is a belligerent, otherwise Notable |
+| `PeaceWasMade`   | Urgent if played is a party, otherwise Notable |
+| `TheFrontMoved`  | Routine                                      |
+
+`Digest` adds one line per open war, from the last `TheFrontMoved` of the passage: `War: United
+Kingdom on United States, +18, the United Kingdom prevailing.`
+
 ## Console
 
-`status` lists open wars with momentum and who is prevailing. No commands yet (plan 08).
+`status` lists open wars with momentum and who is prevailing.
+
+| Command                                                   | Effect                                      |
+|-----------------------------------------------------------|---------------------------------------------|
+| `wars`                                                    | Open wars with numbers, momentum, provinces within reach |
+| `war <country#>`                                          | Declare war                                 |
+| `peace <war#> white`                                      |                                             |
+| `peace <war#> cede <province name>[, <province name>...]` | Enemy provinces by name, comma-separated    |
+| `peace <war#> annex`                                      |                                             |
+
+Ceded provinces are the one place names are typed, because the enemy's provinces have no number in
+the player's own listing. Match them against the loser's provinces, ignoring case. `help` gains a
+fifth group, war.
+
+Add to `surplus.Application.Tests`:
+
+- `The_player_declares_war_and_makes_peace` (`SessionTests`)
+- `A_war_declared_on_the_player_is_urgent` and `The_front_is_routine` (`SignificanceTests`)
+- `Each_open_war_is_summed_up_once` (`DigestTests`)
+
+Extend plan 07's smoke script with `war 2`, `next month`, `wars`, `peace 1 white`.
 
 ## Out of scope
 

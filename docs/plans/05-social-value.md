@@ -58,7 +58,7 @@ After every country has worked, call `Register.Revalue` with all the day's yield
 revaluation whose value moved by at least 1% in either direction, add:
 
 `Chronicle/CommodityWasRevalued.cs`: `sealed record CommodityWasRevalued(string Commodity, Value
-Before, Value After) : Occurrence`, reading e.g. *"Cloth now holds 1.59h of labour a metre, down from
+Before, Value After) : Occurrence`, reading e.g. *"Cloth now holds 1.59h of labour per m, down from
 2.42h."* (use the commodity's unit name; round to two decimals in the sentence only).
 
 Smaller movements are applied but not reported.

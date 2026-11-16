@@ -345,5 +345,43 @@ public class ProvinceTests
     Assert.Equal(Quantity.Of(60m, UnitOfMeasure.Of("quarter")), Assert.Single(yields).Product.Quantity);
   }
 
+  [Fact]
+  public void A_shorter_day_is_fixed_even_when_it_falls_below_yesterdays_necessary_labour()
+  {
+    var cloth = CommodityId.New();
+    var weaving = new BranchBuilder().Producing(cloth).Build();
+    var province = new ProvinceBuilder().Working(weaving).Build();
+
+    // Yesterday a hand cost six hours to keep; a Factory Act cuts the day to five.
+    province.FixTheWorkingDay(cloth, LaborTime.FromHours(5m));
+
+    Assert.Equal(LaborTime.FromHours(5m), weaving.WorkingDay);
+    Assert.Equal(LaborTime.FromHours(5m), weaving.NecessaryLabor);
+  }
+
+  [Fact]
+  public void A_longer_day_leaves_what_a_hand_costs_alone()
+  {
+    var cloth = CommodityId.New();
+    var weaving = new BranchBuilder().Producing(cloth).Build();
+    var province = new ProvinceBuilder().Working(weaving).Build();
+
+    province.FixTheWorkingDay(cloth, LaborTime.FromHours(14m));
+
+    Assert.Equal(LaborTime.FromHours(14m), weaving.WorkingDay);
+    Assert.Equal(LaborTime.FromHours(6m), weaving.NecessaryLabor);
+  }
+
+  [Fact]
+  public void A_day_of_no_hours_is_refused_without_touching_what_a_hand_costs()
+  {
+    var cloth = CommodityId.New();
+    var weaving = new BranchBuilder().Producing(cloth).Build();
+    var province = new ProvinceBuilder().Working(weaving).Build();
+
+    Assert.Throws<DomainException>(() => province.FixTheWorkingDay(cloth, LaborTime.None));
+    Assert.Equal(LaborTime.FromHours(6m), weaving.NecessaryLabor);
+  }
+
   #endregion
 }
