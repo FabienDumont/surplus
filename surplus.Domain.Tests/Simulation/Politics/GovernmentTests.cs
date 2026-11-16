@@ -135,6 +135,44 @@ public class GovernmentTests
   }
 
   [Fact]
+  public void A_state_gives_no_relief_until_it_chooses_to()
+  {
+    var government = Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism);
+
+    Assert.False(government.RelievesThePoor);
+    Assert.True(government.Relieving().RelievesThePoor);
+    Assert.False(government.Relieving().WithdrawingRelief().RelievesThePoor);
+  }
+
+  [Fact]
+  public void Relief_cannot_be_given_twice_or_withdrawn_when_it_was_never_given()
+  {
+    var government = Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism);
+
+    Assert.Throws<DomainException>(() => government.Relieving().Relieving());
+    Assert.Throws<DomainException>(() => government.WithdrawingRelief());
+  }
+
+  [Fact]
+  public void Relief_survives_every_other_change_to_the_constitution()
+  {
+    var relieving = Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism).Relieving();
+
+    Assert.True(relieving.Enacting(Law.EnclosureActs).RelievesThePoor);
+    Assert.True(relieving.Enacting(Law.EnclosureActs).Repealing(Law.EnclosureActs).RelievesThePoor);
+    Assert.True(relieving.TakingForm(GovernmentForm.Republic).RelievesThePoor);
+    Assert.True(relieving.Adopting(Ideology.Conservatism).RelievesThePoor);
+  }
+
+  [Fact]
+  public void A_state_that_relieves_its_poor_is_not_the_same_as_one_that_does_not()
+  {
+    var government = Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism);
+
+    Assert.NotEqual(government, government.Relieving());
+  }
+
+  [Fact]
   public void A_government_reads_as_its_creed_its_form_and_its_statute_book()
   {
     Assert.Equal(

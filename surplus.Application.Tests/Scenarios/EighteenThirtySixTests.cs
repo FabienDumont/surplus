@@ -1,3 +1,4 @@
+using System.Globalization;
 using Surplus.Application.Reporting;
 using Surplus.Application.Scenarios;
 using Surplus.Application.Settings;
@@ -35,8 +36,8 @@ public class EighteenThirtySixTests
   }
 
   [Theory]
-  [InlineData("United Kingdom", 200_000, 200_000, ModeOfProduction.Capitalist)]
-  [InlineData("United States", 150_000, 110_000, ModeOfProduction.Capitalist)]
+  [InlineData("United Kingdom", 96_000, 96_000, ModeOfProduction.Capitalist)]
+  [InlineData("United States", 136_300, 96_300, ModeOfProduction.Capitalist)]
   [InlineData("Russia", 180_000, 180_000, ModeOfProduction.Feudal)]
   public void Each_country_has_the_population_the_scenario_gives_it(
     string name, int population, int armable, ModeOfProduction dominantMode)
@@ -69,17 +70,20 @@ public class EighteenThirtySixTests
   }
 
   /// <summary>
-  /// Corn and Cloth rise by the day's product less what the people ate and
-  /// wore: the surplus product. Fibre, Iron and Machinery rise by what was made
-  /// less what production used up.
+  /// Corn and Cloth rise by the day's product less what was eaten and worn by
+  /// those with a title to it: the surplus product. Britain's unrelieved half
+  /// of its reserve army and America's unrelieved hundred eat nothing. Fibre,
+  /// Iron and Machinery rise by what was made less what production used up.
   /// </summary>
   [Theory]
-  [InlineData("United Kingdom", 400, 20_000, 3_000, 6, 7)]
-  [InlineData("United States", 90, 3_000, 21_000, 18, 6)]
-  [InlineData("Russia", 150, 3_000, 1_500, 0, 0)]
+  [InlineData("United Kingdom", "3041.875", "72837.5", 3_000, 6, 7)]
+  [InlineData("United States", "435", "9900", 21_000, 18, 6)]
+  [InlineData("Russia", "150", "3000", 1_500, 0, 0)]
   public void Each_country_produces_what_the_scenario_says_in_a_day(
-    string name, int corn, int cloth, int fibre, int iron, int machinery)
+    string name, string cornLeft, string clothLeft, int fibre, int iron, int machinery)
   {
+    var corn = decimal.Parse(cornLeft, CultureInfo.InvariantCulture);
+    var cloth = decimal.Parse(clothLeft, CultureInfo.InvariantCulture);
     var world = EighteenThirtySix.Build().World;
     var country = Named(world, name);
     var before = Holdings(world, country);
@@ -172,14 +176,41 @@ public class EighteenThirtySixTests
   }
 
   [Fact]
-  public void Every_country_is_more_populous_after_a_year()
+  public void Britains_reserve_army_dies_down_while_america_and_russia_grow()
   {
     var session = Session.Begin(EighteenThirtySix.Build());
     var before = session.World.Countries.ToDictionary(country => country.Name, country => country.Population);
+    var reserve = Standing.WithoutWork(session.World.Played!);
 
     session.Advance(365);
 
-    Assert.All(session.World.Countries, country => Assert.True(country.Population > before[country.Name]));
+    Assert.True(Named(session.World, "United Kingdom").Population < before["United Kingdom"]);
+    Assert.True(Standing.WithoutWork(session.World.Played!) < reserve);
+    Assert.True(Named(session.World, "United States").Population > before["United States"]);
+    Assert.True(Named(session.World, "Russia").Population > before["Russia"]);
+  }
+
+  [Fact]
+  public void Britain_relieves_its_poor_from_the_start()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    Assert.True(Named(world, "United Kingdom").Government.RelievesThePoor);
+    Assert.False(Named(world, "United States").Government.RelievesThePoor);
+    Assert.False(Named(world, "Russia").Government.RelievesThePoor);
+  }
+
+  [Fact]
+  public void A_year_left_alone_has_no_shortage_but_has_its_reserve_army()
+  {
+    var reports = Session.Begin(EighteenThirtySix.Build()).Advance(365);
+    var workless = reports.SelectMany(report => report.Of<TheWorklessWentWithout>()).ToList();
+
+    Assert.Empty(reports.SelectMany(report => report.Of<PeopleWentWithout>()));
+    Assert.Equal(365, workless.Count(day => day.Country == "United Kingdom"));
+    Assert.Equal(365, workless.Count(day => day.Country == "United States"));
+    // Russia's serfs all eat from the plot.
+    Assert.DoesNotContain(workless, day => day.Country == "Russia");
   }
 
   [Fact]
@@ -205,9 +236,12 @@ public class EighteenThirtySixTests
       [
         "Cloth: 2.00 → 2.42 h per m",
         "Corn: 120.00 → 130.45 h per t",
-        "Population grew: United Kingdom +200, United States +150, Russia +180.",
-        "United Kingdom: 200,200 souls, 32 days of subsistence in store, 133,546 without work.",
-        "Store: Corn +12,400 t, Cloth +620,000 m, Fibre +93,000 kg, Iron +186 t, Machinery +217 machine"
+        "United Kingdom: those with no wage went short on 31 days; 449 died.",
+        "United States: those with no wage went short on 31 days; 1 died.",
+        "United Kingdom: 28 sank into pauperism.",
+        "Population grew: United Kingdom +93, United States +136, Russia +180.",
+        "United Kingdom: 95,644 souls, 102 days of subsistence in store, 2,936 without work.",
+        "Store: Corn +94,384.19 t, Cloth +2,259,683.75 m, Fibre +93,000 kg, Iron +186 t, Machinery +217 machine"
       ],
       digest.Lines);
   }

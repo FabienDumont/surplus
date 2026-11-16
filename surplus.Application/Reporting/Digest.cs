@@ -56,8 +56,11 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
     lines.AddRange(Revaluations(notable.Select(entry => entry.Occurrence).OfType<CommodityWasRevalued>(), world, units));
     lines.AddRange(IdleAbroad(notable.Select(entry => entry.Occurrence).OfType<BranchStoodIdle>()));
     lines.AddRange(FaminesAbroad(notable.Select(entry => entry.Occurrence).OfType<PeopleWentWithout>()));
+    lines.AddRange(Worklessness(notable.Select(entry => entry.Occurrence).OfType<TheWorklessWentWithout>()));
+    lines.AddRange(Pauperism(notable.Select(entry => entry.Occurrence).OfType<SankIntoPauperism>()));
     lines.AddRange(
-      notable.Where(entry => entry.Occurrence is not (CommodityWasRevalued or BranchStoodIdle or PeopleWentWithout))
+      notable.Where(entry => entry.Occurrence is not
+          (CommodityWasRevalued or BranchStoodIdle or PeopleWentWithout or TheWorklessWentWithout or SankIntoPauperism))
         .Select(entry => Dated(entry.Date, entry.Occurrence)));
     lines.AddRange(Fronts(dated.Select(entry => entry.Occurrence).OfType<TheFrontMoved>(), world));
     lines.AddRange(Growth(dated.Select(entry => entry.Occurrence).OfType<PopulationGrew>()));
@@ -108,6 +111,21 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
       .GroupBy(branch => (branch.Country, branch.Province, branch.Commodity))
       .Select(days =>
         $"{days.Key.Country}: {days.Key.Province}'s {days.Key.Commodity} branch stood idle on {Days(days.Count())}.");
+  }
+
+  private static IEnumerable<string> Worklessness(IEnumerable<TheWorklessWentWithout> workless)
+  {
+    return workless
+      .GroupBy(day => day.Country)
+      .Select(days =>
+        $"{days.Key}: those with no wage went short on {Days(days.Count())}; {Number(days.Sum(day => day.Deaths))} died.");
+  }
+
+  private static IEnumerable<string> Pauperism(IEnumerable<SankIntoPauperism> sinking)
+  {
+    return sinking
+      .GroupBy(month => month.Country)
+      .Select(months => $"{months.Key}: {Number(months.Sum(month => month.Heads))} sank into pauperism.");
   }
 
   private static IEnumerable<string> FaminesAbroad(IEnumerable<PeopleWentWithout> famines)

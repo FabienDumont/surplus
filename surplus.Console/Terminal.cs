@@ -33,6 +33,7 @@ public sealed class Terminal
     ["country"] = "country takes a country's number from status, e.g. country 2.",
     ["enact"] = "enact takes a law, e.g. enact EnclosureActs. Type laws to see them.",
     ["repeal"] = "repeal takes a law in force, e.g. repeal EnclosureActs.",
+    ["relief"] = "relief takes on or off, e.g. relief off.",
     ["form"] = "form takes a form of government, e.g. form Republic.",
     ["adopt"] = "adopt takes an ideology, e.g. adopt Liberalism.",
     ["open"] = "open takes a province, a technique, a class, hands and optionally hours, e.g. open 1 2 Proletariat 1000 12.",
@@ -154,6 +155,9 @@ public sealed class Terminal
         break;
       case "form":
         Form(arguments);
+        break;
+      case "relief":
+        Relief(arguments);
         break;
       case "adopt":
         Adopt(arguments);
@@ -420,7 +424,7 @@ public sealed class Terminal
       }
 
       var idle = province.Composition.Presences
-        .Where(presence => presence.Profile.IsDirectProducer && province.Idle(presence.Class) > 0)
+        .Where(presence => Standing.LivesByTheWage(presence) && province.Idle(presence.Class) > 0)
         .Select(presence => $"{presence.Class} {Number(province.Idle(presence.Class))}")
         .ToList();
 
@@ -501,6 +505,7 @@ public sealed class Terminal
 
     _output.WriteLine($"In force: {(inForce.Count == 0 ? "none" : string.Join(", ", inForce))}");
     _output.WriteLine($"Not in force: {string.Join(", ", Enum.GetValues<Law>().Where(law => !inForce.Contains(law)))}");
+    _output.WriteLine($"Poor relief: {(country.Government.RelievesThePoor ? "given" : "not given")}");
   }
 
   private void Country(string[] arguments)
@@ -561,6 +566,37 @@ public sealed class Terminal
     {
       _session.Repeal(law);
       _output.WriteLine($"{law} is repealed.");
+    }
+  }
+
+  private void Relief(string[] arguments)
+  {
+    if (arguments.Length == 0 && Played() is { } country)
+    {
+      _output.WriteLine(country.Government.RelievesThePoor
+        ? "The poor are relieved: half a basket for each who has no wage."
+        : "The poor are given no relief.");
+
+      return;
+    }
+
+    switch (arguments)
+    {
+      case ["on"]:
+        _session.RelieveThePoor();
+        _output.WriteLine("The poor are relieved from now on: half a basket for each who has no wage.");
+        break;
+      case ["off"]:
+        _session.WithdrawRelief();
+        _output.WriteLine("Relief is withdrawn: those with no wage are left to themselves.");
+        break;
+      default:
+        if (arguments.Length > 0)
+        {
+          _output.WriteLine(Usage["relief"]);
+        }
+
+        break;
     }
   }
 
@@ -719,6 +755,7 @@ public sealed class Terminal
     _output.WriteLine("  day <province#> <commodity#> <hours>                   fix the working day");
     _output.WriteLine("State");
     _output.WriteLine("  enact <law> / repeal <law>");
+    _output.WriteLine("  relief [on|off]          show, give or withdraw half a basket for those with no wage");
     _output.WriteLine("  form <governmentForm>    e.g. form Republic");
     _output.WriteLine("  adopt <ideology>         e.g. adopt Liberalism");
     _output.WriteLine("War");

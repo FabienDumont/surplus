@@ -402,9 +402,10 @@ public sealed class World
   /// it. Every country works first; only then is what the day's production
   /// cost settled into the value of each commodity, across all of them at once.
   /// The new values set what keeping a hand costs. Then everyone takes their
-  /// basket out of the store, and those who could not die of it. On the first
-  /// of the month a people that went short of nothing that day multiplies, and
-  /// every open war is fought. What was declared or signed since the last day
+  /// basket out of the store, so far as their revenue gives them a title to
+  /// it, and those who went without die of it. On the first of the month every
+  /// open war is fought, a share of the unemployed sink into pauperism, and
+  /// those who were fed multiply. What was declared or signed since the last day
   /// is told first.
   /// </summary>
   public DayReport Elapse(GameDate today)
@@ -429,35 +430,48 @@ public sealed class World
 
     SettleNecessaryLabor();
 
-    List<Country> provided = [];
+    List<(Country Country, Rations Rations)> fed = [];
 
     foreach (var country in _countries)
     {
-      var share = country.Provision(Subsistence);
+      var rations = country.Provision(Subsistence);
+      var losses = country.LoseTheUnprovided(rations);
 
-      if (share < 1m)
+      if (rations.StoreFellShort)
       {
-        occurrences.Add(new PeopleWentWithout(country.Name, share, country.LoseTheUnprovided(share)));
+        occurrences.Add(new PeopleWentWithout(country.Name, rations.StoreShare, losses.OfShortage));
       }
-      else
+
+      if (rations.Workless > 0)
       {
-        provided.Add(country);
+        occurrences.Add(new TheWorklessWentWithout(country.Name, rations.Workless, losses.OfWorklessness));
       }
+
+      fed.Add((country, rations));
     }
 
     if (today.Date.Day == 1)
     {
-      foreach (var country in provided)
+      occurrences.AddRange(Fight());
+
+      // An annexation signed today cannot happen inside a day, so every country
+      // fed this morning is still in the world tonight.
+      foreach (var (country, rations) in fed)
       {
-        var born = country.Multiply();
+        var sunk = country.Pauperise();
+
+        if (sunk > 0)
+        {
+          occurrences.Add(new SankIntoPauperism(country.Name, sunk));
+        }
+
+        var born = country.Multiply(rations);
 
         if (born > 0)
         {
           occurrences.Add(new PopulationGrew(country.Name, born));
         }
       }
-
-      occurrences.AddRange(Fight());
     }
 
     return new DayReport(today, occurrences);

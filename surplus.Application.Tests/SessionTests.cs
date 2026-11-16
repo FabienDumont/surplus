@@ -127,15 +127,28 @@ public class SessionTests
   }
 
   [Fact]
+  public void The_player_withdraws_and_restores_poor_relief()
+  {
+    var session = InEighteenThirtySix();
+
+    session.WithdrawRelief();
+    var withdrawn = !Kingdom(session).Government.RelievesThePoor;
+    session.RelieveThePoor();
+
+    Assert.True(withdrawn);
+    Assert.True(Kingdom(session).Government.RelievesThePoor);
+  }
+
+  [Fact]
   public void The_player_opens_a_branch_out_of_their_own_stores()
   {
     var session = InEighteenThirtySix();
     var lancashire = Province(session, "Lancashire");
 
-    session.OpenBranch(lancashire.Id, "Large farming", SocialClass.Proletariat, 1_000, TwelveHours);
+    session.OpenBranch(lancashire.Id, "Large farming", SocialClass.Proletariat, 300, TwelveHours);
 
     var farms = lancashire.Branches.Single(branch => branch.Produces == Commodity(session, "Corn").Id);
-    Assert.Equal(1_000, farms.Hands);
+    Assert.Equal(300, farms.Hands);
     Assert.Equal(session.World.CostOfSubsistence(), farms.NecessaryLabor);
   }
 
@@ -225,6 +238,8 @@ public class SessionTests
       () => session.Repeal(Law.EnclosureActs),
       () => session.TakeForm(GovernmentForm.Republic),
       () => session.Adopt(Ideology.Liberalism),
+      () => session.RelieveThePoor(),
+      () => session.WithdrawRelief(),
       () => session.OpenBranch(province, "Hand loom", SocialClass.Proletariat, 10, TwelveHours),
       () => session.CloseBranch(province, commodity),
       () => session.Employ(province, commodity, 10),

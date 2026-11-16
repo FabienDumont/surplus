@@ -59,9 +59,9 @@ Per head, per day: **0.025 t (25 kg) of Corn** and **0.5 m of Cloth**.
 
 ### United Kingdom — played by the human
 
-Government: `ConstitutionalMonarchy`, `Liberalism`, no laws.
+Government: `ConstitutionalMonarchy`, `Liberalism`, no laws, relieves the poor (plan 09).
 
-**Lancashire** — Proletariat 60,000 · Bourgeoisie 2,000 · PettyBourgeoisie 8,000
+**Lancashire** — Proletariat 7,500 · Bourgeoisie 2,000 · PettyBourgeoisie 8,000
 
 | Branch    | Technique    | Workforce   | Hands |
 |-----------|--------------|-------------|-------|
@@ -69,7 +69,7 @@ Government: `ConstitutionalMonarchy`, `Liberalism`, no laws.
 | Iron      | Iron working | Proletariat | 150   |
 | Machinery | Machine shop | Proletariat | 2,000 |
 
-**Kent** — AgriculturalProletariat 110,000 · Landowners 2,000 · Peasantry 18,000
+**Kent** — AgriculturalProletariat 58,500 · Landowners 2,000 · Peasantry 18,000
 
 | Branch | Technique     | Workforce               | Hands  |
 |--------|---------------|-------------------------|--------|
@@ -82,7 +82,7 @@ Store: Corn 150,000 t · Cloth 3,000,000 m · Fibre 1,800,000 kg · Iron 360 t �
 
 Government: `Republic`, `Liberalism`, no laws.
 
-**New England** — Peasantry 60,000 · PettyBourgeoisie 20,000 · Proletariat 15,000 · Bourgeoisie 1,000 ·
+**New England** — Peasantry 60,000 · PettyBourgeoisie 20,000 · Proletariat 1,300 · Bourgeoisie 1,000 ·
 Merchants 4,000
 
 | Branch    | Technique       | Workforce        | Hands  |
@@ -138,8 +138,8 @@ decimal places on hours.
 
 | Country        | Population | Armable | Dominant mode |
 |----------------|------------|---------|---------------|
-| United Kingdom | 200,000    | 200,000 | Capitalist    |
-| United States  | 150,000    | 110,000 | Capitalist    |
+| United Kingdom | 96,000     | 96,000  | Capitalist    |
+| United States  | 136,300    | 96,300  | Capitalist    |
 | Russia         | 180,000    | 180,000 | Feudal        |
 
 Province modes: Lancashire, Kent, New England are Capitalist; Carolina is Slave; Muscovy and Ukraine
@@ -149,11 +149,14 @@ are Feudal.
 
 | Country        | Corn (t)          | Cloth (m)         | Fibre (kg)        | Iron (t)| Machinery |
 |----------------|-------------------|-------------------|-------------------|---------|-----------|
-| United Kingdom | 5,400 / 5,000     | 120,000 / 100,000 | 63,000 / 60,000   | 18 / 12 | 12 / 5    |
-| United States  | 3,840 / 3,750     | 78,000 / 75,000   | 60,000 / 39,000   | 24 / 6  | 6 / 0     |
+| United Kingdom | 5,400 / 2,358.125 | 120,000 / 47,162.5 | 63,000 / 60,000   | 18 / 12 | 12 / 5    |
+| United States  | 3,840 / 3,405     | 78,000 / 68,100   | 60,000 / 39,000   | 24 / 6  | 6 / 0     |
 | Russia         | 4,650 / 4,500     | 93,000 / 90,000   | 48,000 / 46,500   | —       | —         |
 
-Corn and Cloth consumption is the population's subsistence (plan 06). Fibre and Iron consumption is
+Corn and Cloth consumption is the subsistence of those with a title to it (plans 06 and 09): every head
+but the unemployed. Britain relieves its 3,350 unemployed with half a basket each, so it feeds 94,325
+baskets a day. America's 100 unemployed proletarians get nothing, so it feeds 136,200. Russia has no
+wage-earners. Fibre and Iron consumption is
 material. Machinery consumption is the replacement of worn instruments (2,500 machines at 0.002).
 
 **Values after the first day of production (plan 05), stable on every later day while nothing else
@@ -169,8 +172,24 @@ changes**
 
 **Necessary labour after the first day (plan 06):** 0.025 × 130.4536 + 0.5 × 2.4175 = **4.4701 hours**.
 
-**A year left alone (plans 02 to 06):** advancing 365 days with no player action and no AI, no branch
-stands idle and nobody goes without in any country.
+**The reserve army (plan 09):**
+
+| Province    | Class                   | Hands  | Heads  | Unemployed |
+|-------------|-------------------------|--------|--------|------------|
+| Lancashire  | Proletariat             | 7,150  | 7,500  | 350        |
+| Kent        | AgriculturalProletariat | 55,500 | 58,500 | 3,000      |
+| New England | Proletariat             | 1,200  | 1,300  | 100        |
+
+Until plan 09 these classes counted 60,000, 110,000 and 15,000 heads. Only heads changed, so
+production, values, necessary labour and development are as they were.
+
+**A year left alone (plans 02 to 09):** advancing 365 days with no player action and no AI, no branch
+stands idle and no store falls short in any country.
+
+- Britain and America report those with no wage every day.
+- Britain's reserve army falls from 3,350 to under 1,000 in the year, by death and by sinking into
+  pauperism, and its population with it.
+- America and Russia grow.
 
 **Development (plan 11):**
 - Russia's 62,000 serfs on corn put 744,000 h a day toward large farming. At the feudal drive of 0.1

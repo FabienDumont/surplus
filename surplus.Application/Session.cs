@@ -138,6 +138,16 @@ public sealed class Session
     Played().Adopt(ideology);
   }
 
+  public void RelieveThePoor()
+  {
+    Played().RelieveThePoor();
+  }
+
+  public void WithdrawRelief()
+  {
+    Played().WithdrawRelief();
+  }
+
   /// <summary>Opens a branch by a technique of the catalogue; what a hand costs to keep is the world's to say.</summary>
   public void OpenBranch(
     ProvinceId province, string technique, SocialClass workforce, int hands, LaborTime workingDay)

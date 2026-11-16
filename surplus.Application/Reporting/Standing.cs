@@ -23,15 +23,23 @@ public static class Standing
   }
 
   /// <summary>
-  /// The direct producers no branch employs. Those who live on the labour of
-  /// others are never counted: being without work is not their condition.
+  /// The reserve army: wage-earners no branch employs. A peasant or a craftsman
+  /// outside every branch still lives off the plot or the workshop, and those
+  /// who live on others' labour are never without work in this sense, so only
+  /// the classes that live by the wage are counted.
   /// </summary>
   public static int WithoutWork(Country country)
   {
     return country.Provinces.Sum(
       province => province.Composition.Presences
-        .Where(presence => presence.Profile.IsDirectProducer)
+        .Where(LivesByTheWage)
         .Sum(presence => province.Idle(presence.Class)));
+  }
+
+  /// <summary>Whether a class has nothing to live on but a wage.</summary>
+  public static bool LivesByTheWage(ClassPresence presence)
+  {
+    return presence.Profile.Income.Title() is Access.Employed;
   }
 
   #endregion

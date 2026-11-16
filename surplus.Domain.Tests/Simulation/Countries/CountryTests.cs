@@ -487,9 +487,11 @@ public class CountryTests
     var (corn, cloth, basket) = Basket();
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 100), Corn(corn, 150m), Cloth(cloth, 300m));
 
-    var provided = russia.Provision(basket);
+    var rations = russia.Provision(basket);
 
-    Assert.Equal(1m, provided);
+    Assert.Equal(1m, rations.StoreShare);
+    Assert.False(rations.StoreFellShort);
+    Assert.Equal([new Ration(russia.Provinces[0].Id, SocialClass.Serfs, 100, 0, 100m, 100m)], rations.Each);
     Assert.Equal(50m, russia.Store.AmountOf(corn.Id));
     Assert.Equal(100m, russia.Store.AmountOf(cloth.Id));
   }
@@ -500,10 +502,11 @@ public class CountryTests
     var (corn, cloth, basket) = Basket();
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 100), Corn(corn, 150m), Cloth(cloth, 100m));
 
-    var provided = russia.Provision(basket);
+    var rations = russia.Provision(basket);
 
     // Half the cloth they need, so half the corn too, though there was corn enough.
-    Assert.Equal(0.5m, provided);
+    Assert.Equal(0.5m, rations.StoreShare);
+    Assert.True(rations.StoreFellShort);
     Assert.Equal(100m, russia.Store.AmountOf(corn.Id));
     Assert.Equal(0m, russia.Store.AmountOf(cloth.Id));
   }
@@ -514,10 +517,10 @@ public class CountryTests
     var (corn, cloth, basket) = Basket();
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 3), Corn(corn, 2m), Cloth(cloth, 6m));
 
-    var provided = russia.Provision(basket);
+    var rations = russia.Provision(basket);
 
     // Two thirds do not divide evenly; the store must still give up exactly what it holds.
-    Assert.Equal(0.6667m, decimal.Round(provided, 4));
+    Assert.Equal(0.6667m, decimal.Round(rations.StoreShare, 4));
     Assert.Equal(0m, russia.Store.AmountOf(corn.Id));
   }
 
@@ -527,32 +530,144 @@ public class CountryTests
     var (_, _, basket) = Basket();
     var nobody = new CountryBuilder().WithProvinces(new ProvinceBuilder().Unpeopled().Build()).Build();
 
-    Assert.Equal(1m, nobody.Provision(basket));
+    var rations = nobody.Provision(basket);
+
+    Assert.Equal(1m, rations.StoreShare);
+    Assert.Empty(rations.Each);
     Assert.Equal(Store.Empty, nobody.Store);
   }
 
   [Fact]
-  public void Those_who_went_without_die_a_few_each_day()
+  public void An_employed_worker_eats_and_an_unemployed_one_does_not()
+  {
+    var (corn, cloth, basket) = Basket();
+    var (britain, lancashire) = Mill(100, 60, false, Corn(corn, 1_000m), Cloth(cloth, 1_000m));
+
+    var rations = britain.Provision(basket);
+
+    Assert.Equal(
+      [new Ration(lancashire.Id, SocialClass.Proletariat, 100, 40, 60m, 60m)], rations.Each);
+    Assert.Equal(940m, britain.Store.AmountOf(corn.Id));
+  }
+
+  [Fact]
+  public void Full_granaries_do_not_feed_those_with_no_wage()
+  {
+    var (corn, cloth, basket) = Basket();
+    var (britain, _) = Mill(100, 60, false, Corn(corn, 1_000m), Cloth(cloth, 1_000m));
+
+    var rations = britain.Provision(basket);
+
+    Assert.False(rations.StoreFellShort);
+    Assert.Equal(40, rations.Workless);
+    Assert.True(britain.Store.AmountOf(corn.Id) > 0m);
+  }
+
+  [Fact]
+  public void Poor_relief_gives_the_unemployed_half_a_basket()
+  {
+    var (corn, cloth, basket) = Basket();
+    var (britain, _) = Mill(100, 60, true, Corn(corn, 1_000m), Cloth(cloth, 1_000m));
+
+    var ration = Assert.Single(britain.Provision(basket).Each);
+
+    Assert.Equal(80m, ration.Claimed);
+    Assert.Equal(40, ration.Workless);
+  }
+
+  [Fact]
+  public void Poor_relief_reaches_the_lumpenproletariat()
+  {
+    var (corn, cloth, basket) = Basket();
+    var paupers = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Lumpenproletariat, 10)).Build();
+    var relieving = new CountryBuilder().WithProvinces(paupers).WithGovernment(new GovernmentBuilder().RelievingThePoor().Build())
+      .Holding(Corn(corn, 100m), Cloth(cloth, 100m)).Build();
+    var leaving = new CountryBuilder().WithProvinces(new ProvinceBuilder()
+      .WithClasses(ClassPresence.Of(SocialClass.Lumpenproletariat, 10)).Build()).Holding(Corn(corn, 100m), Cloth(cloth, 100m)).Build();
+
+    Assert.Equal(5m, Assert.Single(relieving.Provision(basket).Each).Claimed);
+    Assert.Equal(0m, Assert.Single(leaving.Provision(basket).Each).Claimed);
+    Assert.Equal(10, Assert.Single(leaving.Provision(basket).Each).Workless);
+  }
+
+  [Fact]
+  public void When_the_store_falls_short_the_appropriators_eat_first()
+  {
+    var (corn, cloth, basket) = Basket();
+    var russia = Peopled(
+      [ClassPresence.Of(SocialClass.Serfs, 100), ClassPresence.Of(SocialClass.FeudalLords, 10)],
+      [Corn(corn, 50m), Cloth(cloth, 1_000m)]);
+
+    var rations = russia.Provision(basket);
+
+    Assert.Equal(10m, rations.Each.Single(ration => ration.Class == SocialClass.FeudalLords).Provided);
+  }
+
+  [Fact]
+  public void What_is_left_after_the_appropriators_is_shared_in_proportion()
+  {
+    var (corn, cloth, basket) = Basket();
+    var russia = Peopled(
+      [ClassPresence.Of(SocialClass.Serfs, 100), ClassPresence.Of(SocialClass.FeudalLords, 10)],
+      [Corn(corn, 50m), Cloth(cloth, 1_000m)]);
+
+    var rations = russia.Provision(basket);
+
+    // Forty tonnes left for a hundred serfs.
+    Assert.Equal(0.4m, rations.StoreShare);
+    Assert.Equal(40m, rations.Each.Single(ration => ration.Class == SocialClass.Serfs).Provided);
+  }
+
+  [Fact]
+  public void Those_whose_title_the_store_could_not_honour_die_a_few_each_day()
   {
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 2_000));
 
     // Half their basket: a percent of the half who went without.
-    var dead = russia.LoseTheUnprovided(0.5m);
+    var losses = russia.LoseTheUnprovided(Fed(russia, SocialClass.Serfs, 2_000, 0, 2_000m, 1_000m));
 
-    Assert.Equal(10, dead);
+    Assert.Equal(new Losses(10, 0), losses);
     Assert.Equal(1_990, russia.Population);
+  }
+
+  [Fact]
+  public void The_workless_die_of_it_a_few_each_day()
+  {
+    var britain = Peopled(ClassPresence.Of(SocialClass.Proletariat, 1_000));
+
+    var losses = britain.LoseTheUnprovided(Fed(britain, SocialClass.Proletariat, 1_000, 1_000, 0m, 0m));
+
+    Assert.Equal(new Losses(0, 10), losses);
+    Assert.Equal(990, britain.Population);
   }
 
   [Fact]
   public void Those_who_live_on_the_labour_of_others_do_not_starve_first()
   {
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 1_000), ClassPresence.Of(SocialClass.FeudalLords, 1_000));
+    var muscovy = russia.Provinces[0].Id;
+    var rations = new Rations(
+      [
+        new Ration(muscovy, SocialClass.Serfs, 1_000, 0, 1_000m, 0m),
+        new Ration(muscovy, SocialClass.FeudalLords, 1_000, 0, 1_000m, 0m)
+      ],
+      0m);
 
-    var dead = russia.LoseTheUnprovided(0m);
+    var losses = russia.LoseTheUnprovided(rations);
 
-    Assert.Equal(10, dead);
-    Assert.Equal(990, russia.Provinces[0].HeadsOf(SocialClass.Serfs));
+    Assert.Equal(new Losses(10, 0), losses);
     Assert.Equal(1_000, russia.Provinces[0].HeadsOf(SocialClass.FeudalLords));
+  }
+
+  [Fact]
+  public void The_unemployed_die_before_anyone_is_struck_off_a_branch()
+  {
+    var (britain, lancashire) = Mill(1_000, 500, false);
+
+    britain.LoseTheUnprovided(Fed(britain, SocialClass.Proletariat, 1_000, 500, 500m, 500m));
+
+    Assert.Equal(995, lancashire.HeadsOf(SocialClass.Proletariat));
+    Assert.Equal(500, Assert.Single(lancashire.Branches).Hands);
   }
 
   [Fact]
@@ -563,7 +678,7 @@ public class CountryTests
     var muscovy = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Serfs, 1_000)).Working(tillage).Build();
     var russia = new CountryBuilder().WithProvinces(muscovy).Build();
 
-    russia.LoseTheUnprovided(0m);
+    russia.LoseTheUnprovided(Fed(russia, SocialClass.Serfs, 1_000, 0, 1_000m, 0m));
 
     // No serf stood idle, so the dead are missed at the loom.
     Assert.Equal(990, tillage.Hands);
@@ -574,31 +689,85 @@ public class CountryTests
   {
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 2_000));
 
-    Assert.Equal(0, russia.LoseTheUnprovided(1m));
+    Assert.Equal(new Losses(0, 0), russia.LoseTheUnprovided(Fed(russia, SocialClass.Serfs, 2_000, 0, 2_000m, 2_000m)));
     Assert.Equal(2_000, russia.Population);
   }
 
   [Fact]
-  public void A_people_multiplies_class_by_class()
+  public void Only_those_who_were_fed_multiply()
   {
     var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 10_000), ClassPresence.Of(SocialClass.FeudalLords, 2_000));
+    var muscovy = russia.Provinces[0].Id;
+    var rations = new Rations(
+      [
+        new Ration(muscovy, SocialClass.Serfs, 10_000, 0, 10_000m, 4_000m),
+        new Ration(muscovy, SocialClass.FeudalLords, 2_000, 0, 2_000m, 2_000m)
+      ],
+      0.4m);
 
-    var born = russia.Multiply();
+    var born = russia.Multiply(rations);
 
-    Assert.Equal(12, born);
-    Assert.Equal(10_010, russia.Provinces[0].HeadsOf(SocialClass.Serfs));
+    Assert.Equal(6, born);
+    Assert.Equal(10_004, russia.Provinces[0].HeadsOf(SocialClass.Serfs));
     Assert.Equal(2_002, russia.Provinces[0].HeadsOf(SocialClass.FeudalLords));
   }
 
   [Fact]
   public void A_class_too_small_to_multiply_stays_as_it_is()
   {
-    var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 10_000), ClassPresence.Of(SocialClass.FeudalLords, 999));
+    var russia = Peopled(ClassPresence.Of(SocialClass.FeudalLords, 999));
 
-    var born = russia.Multiply();
+    Assert.Equal(0, russia.Multiply(Fed(russia, SocialClass.FeudalLords, 999, 0, 999m, 999m)));
+    Assert.Equal(999, russia.Population);
+  }
 
-    Assert.Equal(10, born);
-    Assert.Equal(999, russia.Provinces[0].HeadsOf(SocialClass.FeudalLords));
+  [Fact]
+  public void Each_month_a_share_of_the_unemployed_sink_into_pauperism()
+  {
+    var (britain, lancashire) = Mill(1_000, 500, false);
+
+    var sunk = britain.Pauperise();
+
+    Assert.Equal(5, sunk);
+    Assert.Equal(995, lancashire.HeadsOf(SocialClass.Proletariat));
+    Assert.Equal(5, lancashire.HeadsOf(SocialClass.Lumpenproletariat));
+    Assert.Equal(500, Assert.Single(lancashire.Branches).Hands);
+  }
+
+  [Fact]
+  public void Pauperism_takes_no_one_who_is_employed_and_no_one_who_lives_off_the_plot()
+  {
+    var (britain, lancashire) = Mill(1_000, 1_000, false);
+    var russia = Peopled(ClassPresence.Of(SocialClass.Serfs, 1_000));
+
+    Assert.Equal(0, britain.Pauperise());
+    Assert.Equal(0, russia.Pauperise());
+    Assert.Equal(0, lancashire.HeadsOf(SocialClass.Lumpenproletariat));
+  }
+
+  [Fact]
+  public void The_lumpenproletariat_cannot_be_set_to_work()
+  {
+    var (_, cloth, yarn, _) = Weaving();
+    var slums = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Lumpenproletariat, 100)).Build();
+    var britain = Britain(slums, Stock.Of(yarn.Id, Quantity.Of(1_000m, Pound)));
+
+    Assert.Throws<DomainException>(
+      () => britain.OpenBranch(slums.Id, HandLoom(cloth, yarn), SocialClass.Lumpenproletariat, 10, Day, Necessary));
+    Assert.Empty(slums.Branches);
+  }
+
+  [Fact]
+  public void A_country_relieves_its_poor_and_withdraws_relief()
+  {
+    var britain = new CountryBuilder().Build();
+
+    britain.RelieveThePoor();
+    var relieving = britain.Government.RelievesThePoor;
+    britain.WithdrawRelief();
+
+    Assert.True(relieving);
+    Assert.False(britain.Government.RelievesThePoor);
   }
 
   #endregion
@@ -642,6 +811,26 @@ public class CountryTests
     return new CountryBuilder().WithName("Russia")
       .WithProvinces(new ProvinceBuilder().WithName("Muscovy").WithClasses(presences).Build())
       .Holding(stocks).Build();
+  }
+
+  /// <summary>A one-class day of rations for the country's first province.</summary>
+  private static Rations Fed(
+    Country country, SocialClass socialClass, int heads, int workless, decimal claimed, decimal provided)
+  {
+    return new Rations([new Ration(country.Provinces[0].Id, socialClass, heads, workless, claimed, provided)], 1m);
+  }
+
+  /// <summary>Lancashire with so many proletarians, so many of them at a weaving branch.</summary>
+  private static (Country Britain, Province Lancashire) Mill(int heads, int employed, bool relieved, params Stock[] stocks)
+  {
+    var weaving = new BranchBuilder().WorkedBy(SocialClass.Proletariat, employed).Build();
+    var lancashire = new ProvinceBuilder().WithName("Lancashire")
+      .WithClasses(ClassPresence.Of(SocialClass.Proletariat, heads)).Working(weaving).Build();
+    var government = relieved ? new GovernmentBuilder().RelievingThePoor().Build() : new GovernmentBuilder().Build();
+    var britain = new CountryBuilder().WithName("United Kingdom").WithGovernment(government)
+      .WithProvinces(lancashire).Holding(stocks).Build();
+
+    return (britain, lancashire);
   }
 
   private static Country Britain(Province province, params Stock[] stocks)

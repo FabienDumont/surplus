@@ -128,6 +128,25 @@ public class DigestTests
   }
 
   [Fact]
+  public void Worklessness_and_pauperism_are_summed_per_country()
+  {
+    var (world, _) = Kingdom();
+
+    var digest = Digested(
+      world,
+      [new TheWorklessWentWithout("United Kingdom", 3_350, 16), new TheWorklessWentWithout("United States", 100, 1)],
+      [new TheWorklessWentWithout("United Kingdom", 3_300, 15), new SankIntoPauperism("United Kingdom", 28)]);
+
+    Assert.Equal(
+      [
+        "United Kingdom: those with no wage went short on 2 days; 31 died.",
+        "United States: those with no wage went short on 1 day; 1 died.",
+        "United Kingdom: 28 sank into pauperism."
+      ],
+      digest.Lines.Take(3));
+  }
+
+  [Fact]
   public void Anything_else_worth_reading_is_told_with_its_date()
   {
     var (world, _) = Kingdom();

@@ -39,10 +39,15 @@ who has a claim on it.
 
 ## Changes
 
-### `Politics/Law.cs` and `Laws.cs`
+### `Politics/Government.cs`: poor relief
 
-Add `Law.PoorRelief`. It forbids no relation: register it in `Laws` with an empty list, so `Enforce`
-does nothing to the class structure. Its doc comment carries the history:
+*As built:* relief is a policy of the government, `Government.RelievesThePoor`, with `Relieving()` and
+`WithdrawingRelief()`. A `Law` here outlaws a relation of production, and a test holds every law to
+forbidding something, so relief could not be a law without removing that rule. `Country` gains
+`RelieveThePoor()` and `WithdrawRelief()`, `Session` the same, and the console `relief [on|off]`.
+
+*As first planned:* add `Law.PoorRelief`. It forbids no relation: register it in `Laws` with an empty
+list, so `Enforce` does nothing to the class structure. Its doc comment carries the history:
 
 - the parish relief of the Old Poor Law;
 - the workhouse of 1834;
@@ -55,8 +60,8 @@ public enum Access { First, Whole, Employed, None }
 
 public static class Revenues
 {
-  /// What a class's revenue gives it a title to.
-  public static Access Access(this IncomeSource income);
+  /// What a class's revenue gives it a title to. Built as Title(): Access would clash with the enum.
+  public static Access Title(this IncomeSource income);
 }
 ```
 
@@ -183,16 +188,17 @@ plan 11's development figures stay exactly as they are:
 | Kent        | AgriculturalProletariat | 55,500 | 110,000  | 58,500      | 3,000   |
 | New England | Proletariat             | 1,200 | 15,000    | 1,300       | 100     |
 
-The United Kingdom starts with `PoorRelief` enacted; the United States and Russia do not.
+The United Kingdom starts by relieving its poor; the United States and Russia do not.
 
 Update `00-scenario-data.md`, "Structure at the start" and the daily flows:
 
 | Country        | Population | Armable | Corn consumed (t) | Cloth consumed (m) |
 |----------------|------------|---------|-------------------|--------------------|
-| United Kingdom | 96,000     | 96,000  | 2,400             | 48,000             |
-| United States  | 136,300    | 96,300  | 3,407.5           | 68,150             |
+| United Kingdom | 96,000     | 96,000  | 2,358.125         | 47,162.5           |
+| United States  | 136,300    | 96,300  | 3,405             | 68,100             |
 | Russia         | 180,000    | 180,000 | 4,500             | 90,000             |
 
+Consumption is counted in claims, not heads: Britain's unemployed eat half a basket, and America's none.
 Dominant modes and province modes are unchanged. Check this with the existing tests rather than by
 hand.
 

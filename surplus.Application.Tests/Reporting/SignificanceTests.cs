@@ -74,6 +74,25 @@ public class SignificanceTests
   }
 
   [Fact]
+  public void Worklessness_is_notable_and_does_not_stop_the_clock()
+  {
+    var world = Kingdom();
+    var today = new DayReport(GameDate.Of(1836, 1, 2), [new TheWorklessWentWithout("United Kingdom", 3_350, 16)]);
+
+    Assert.Equal(Importance.Notable, Significance.Of(new TheWorklessWentWithout("United Kingdom", 3_350, 16), world));
+    Assert.Equal(Importance.Notable, Significance.Of(new SankIntoPauperism("United Kingdom", 28), world));
+    Assert.False(Significance.CallsForAttention(today, null, world));
+  }
+
+  [Fact]
+  public void Worklessness_is_the_same_concern_whatever_its_numbers()
+  {
+    Assert.Equal(
+      Significance.Concern(new TheWorklessWentWithout("United Kingdom", 3_350, 16)),
+      Significance.Concern(new TheWorklessWentWithout("United Kingdom", 3_000, 15)));
+  }
+
+  [Fact]
   public void An_occurrence_nobody_has_classified_is_shown()
   {
     Assert.Equal(Importance.Notable, Significance.Of(new CometSighted(), Kingdom()));

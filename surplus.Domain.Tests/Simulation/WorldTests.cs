@@ -491,6 +491,49 @@ public class WorldTests
   }
 
   [Fact]
+  public void Worklessness_is_reported_apart_from_shortage()
+  {
+    var (register, corn, cloth, _) = Fed();
+    var britain = Workers(1_000);
+    var world = new WorldBuilder().WithRegister(register).WithSubsistence(Basket(corn, cloth)).WithCountries(britain)
+      .Build();
+
+    var report = world.Elapse(GameDate.Of(1836, 1, 2));
+
+    Assert.Equal(new TheWorklessWentWithout("United Kingdom", 1_000, 10), Assert.Single(report.Of<TheWorklessWentWithout>()));
+    Assert.Empty(report.Of<PeopleWentWithout>());
+  }
+
+  [Fact]
+  public void A_full_store_reports_no_shortage_even_when_the_workless_go_hungry()
+  {
+    var (register, corn, cloth, _) = Fed();
+    var britain = Workers(1_000, Stock.Of(corn.Id, Quantity.Of(1_000m, Tonne)), Stock.Of(cloth.Id, Quantity.Of(1_000m, Yard)));
+    var world = new WorldBuilder().WithRegister(register).WithSubsistence(Basket(corn, cloth)).WithCountries(britain)
+      .Build();
+
+    var report = world.Elapse(GameDate.Of(1836, 1, 2));
+
+    Assert.Empty(report.Of<PeopleWentWithout>());
+    Assert.Single(report.Of<TheWorklessWentWithout>());
+    Assert.Equal(1_000m, britain.Store.AmountOf(corn.Id));
+  }
+
+  [Fact]
+  public void Pauperism_is_reported_on_the_first_of_the_month()
+  {
+    var britain = Workers(10_000);
+    var world = new WorldBuilder().WithCountries(britain).Build();
+
+    var ordinary = world.Elapse(GameDate.Of(1836, 1, 31));
+    var first = world.Elapse(GameDate.Of(1836, 2, 1));
+
+    Assert.Empty(ordinary.Of<SankIntoPauperism>());
+    Assert.Single(first.Of<SankIntoPauperism>());
+    Assert.True(britain.Provinces[0].HeadsOf(SocialClass.Lumpenproletariat) > 0);
+  }
+
+  [Fact]
   public void A_branch_opened_through_the_world_pays_what_subsistence_costs()
   {
     var (world, russia, smelting) = Smelting();
@@ -887,6 +930,14 @@ public class WorldTests
   {
     return new BranchBuilder().Producing(iron.Id).InTheFormOf(ProductiveForm.Cooperation)
       .WorkedBy(SocialClass.Serfs, 100).WithOutputPerHour(Quantity.Of(0.01m, Tonne)).Build();
+  }
+
+  /// <summary>A United Kingdom of so many proletarians, none of them employed, holding these heaps.</summary>
+  private static Country Workers(int heads, params Stock[] stocks)
+  {
+    return new CountryBuilder().WithName("United Kingdom")
+      .WithProvinces(new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Proletariat, heads)).Build())
+      .Holding(stocks).Build();
   }
 
   /// <summary>A one-province Russia of so many serfs and nothing else, holding nothing.</summary>

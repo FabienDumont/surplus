@@ -30,6 +30,10 @@ public static class Significance
       WarWasDeclared declared => AtHomeOrAbroad(declared.Defender, world),
       PeaceWasMade peace => AtHomeOrAbroad(peace.Loser, world),
       TheFrontMoved => Importance.Routine,
+
+      // Chronic wherever there is a reserve army: worth reading, never worth stopping for.
+      TheWorklessWentWithout => Importance.Notable,
+      SankIntoPauperism => Importance.Notable,
       _ => Importance.Notable
     };
   }
@@ -59,6 +63,7 @@ public static class Significance
     return occurrence switch
     {
       PeopleWentWithout famine => (nameof(PeopleWentWithout), famine.Country),
+      TheWorklessWentWithout workless => (nameof(TheWorklessWentWithout), workless.Country),
       BranchStoodIdle idle => (nameof(BranchStoodIdle), idle.Country, idle.Province, idle.Commodity),
       _ => occurrence
     };

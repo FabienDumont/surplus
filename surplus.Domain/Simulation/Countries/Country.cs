@@ -28,11 +28,21 @@ public sealed class Country
   private static readonly decimal DeathsOfWant = 0.01m;
 
   /// <summary>
-  /// How much a fully provided class grows in a month. A tenth of a percent is a
-  /// tuned figure; it is the same for every class because this stage of the
-  /// model gives every class the same basket.
+  /// How much the fed part of a class grows in a month. A tenth of a percent is
+  /// a tuned figure; it is the same for every class because every class takes
+  /// the same basket.
   /// </summary>
   private static readonly decimal MonthlyGrowth = 0.001m;
+
+  /// <summary>
+  /// The share of a basket the state gives those with no title, when it gives
+  /// relief at all: less than the worst wage, by the principle of less
+  /// eligibility.
+  /// </summary>
+  private static readonly decimal Relief = 0.5m;
+
+  /// <summary>The share of the unemployed who sink into pauperism in a month. A tuned figure.</summary>
+  private static readonly decimal Pauperism = 0.01m;
 
   private readonly List<Province> _provinces;
 
@@ -208,6 +218,18 @@ public sealed class Country
     Government = Government.Adopting(ideology);
   }
 
+  /// <summary>Starts keeping those with no wage on half a basket.</summary>
+  public void RelieveThePoor()
+  {
+    Government = Government.Relieving();
+  }
+
+  /// <summary>Leaves those with no wage to themselves.</summary>
+  public void WithdrawRelief()
+  {
+    Government = Government.WithdrawingRelief();
+  }
+
   /// <summary>
   /// Puts something in the store that no day of the simulation produced: the
   /// granaries and warehouses a scenario opens on, the fruit of labour done
@@ -257,16 +279,63 @@ public sealed class Country
   }
 
   /// <summary>
-  /// Gives everyone their day's subsistence, so far as the store can, and
-  /// returns the share provided, from 0 to 1. The basket is taken whole or in
-  /// proportion, never good by good: a people short of cloth does not make it
-  /// up in corn, it goes short of both. What is left in the store after this
-  /// is the surplus product.
+  /// Gives every class what its revenue gives it a title to, so far as the
+  /// store can. The appropriators are served first; every other claim is then
+  /// met in the same proportion. Each basket is taken whole or in proportion,
+  /// never good by good: a people short of cloth does not make it up in corn.
+  /// What is left in the store after this is the surplus product.
   /// </summary>
-  public decimal Provision(Subsistence subsistence)
+  public Rations Provision(Subsistence subsistence)
   {
-    var needed = subsistence.For(Population).Where(stock => !stock.IsExhausted).ToList();
-    var provided = needed
+    var relieved = Government.RelievesThePoor;
+    var claims = _provinces
+      .SelectMany(province => province.Composition.Presences, (province, presence) => Claim(province, presence, relieved))
+      .ToList();
+
+    var firstShare = Serve(subsistence, claims.Where(claim => claim.First).Sum(claim => claim.Claimed));
+    var storeShare = Serve(subsistence, claims.Where(claim => !claim.First).Sum(claim => claim.Claimed));
+
+    return new Rations(
+      [
+        .. claims.Select(claim => new Ration(
+          claim.Province, claim.Class, claim.Heads, claim.Workless, claim.Claimed,
+          claim.Claimed * (claim.First ? firstShare : storeShare)))
+      ],
+      storeShare);
+  }
+
+  /// <summary>What one class in one province has a title to, in baskets.</summary>
+  private static (ProvinceId Province, SocialClass Class, int Heads, int Workless, decimal Claimed, bool First) Claim(
+    Province province, ClassPresence presence, bool relieved)
+  {
+    var heads = presence.Heads;
+    var access = presence.Profile.Income.Title();
+
+    switch (access)
+    {
+      case Access.Employed:
+        var employed = Math.Min(province.Employed(presence.Class), heads);
+        var unemployed = heads - employed;
+
+        return (province.Id, presence.Class, heads, unemployed, employed + (relieved ? unemployed * Relief : 0m), false);
+      case Access.None:
+        return (province.Id, presence.Class, heads, heads, relieved ? heads * Relief : 0m, false);
+      default:
+        return (province.Id, presence.Class, heads, 0, heads, access is Access.First);
+    }
+  }
+
+  /// <summary>
+  /// Draws so many baskets from the store, or the largest share of them it can
+  /// give, and returns that share.
+  /// </summary>
+  private decimal Serve(Subsistence subsistence, decimal baskets)
+  {
+    var needed = subsistence.PerHead
+      .Select(stock => Stock.Of(stock.Commodity, stock.Quantity * baskets))
+      .Where(stock => !stock.IsExhausted)
+      .ToList();
+    var share = needed
       .Select(stock => Math.Min(1m, Store.AmountOf(stock.Commodity) / stock.Quantity.Amount))
       .DefaultIfEmpty(1m)
       .Min();
@@ -277,67 +346,90 @@ public sealed class Country
     [
       .. needed.Select(stock => Stock.Of(
         stock.Commodity,
-        Quantity.Of(Math.Min(stock.Quantity.Amount * provided, Store.AmountOf(stock.Commodity)), stock.Quantity.Unit)))
+        Quantity.Of(Math.Min(stock.Quantity.Amount * share, Store.AmountOf(stock.Commodity)), stock.Quantity.Unit)))
     ];
 
     Store = Store.Drawn(taken);
 
-    return provided;
+    return share;
   }
 
   /// <summary>
-  /// Those who went without die of it, a few each day, and the number is
-  /// returned. Those who live on the labour of others are left out: they do not
-  /// starve first, and the model says so by not starving them at all. The dead
-  /// are struck off the branches they worked in.
+  /// Those who went without die of it, a few each day: those whose title the
+  /// store could not honour, and those who had none. The appropriators are left
+  /// out; they do not starve first, and the model says so by not starving them
+  /// at all. The dead fall on those without work before anyone is struck off a
+  /// branch, because a branch loses hands only when its class has fewer heads
+  /// than it employs.
   /// </summary>
-  public int LoseTheUnprovided(decimal provided)
+  public Losses LoseTheUnprovided(Rations rations)
   {
-    if (provided >= 1m)
-    {
-      return 0;
-    }
+    var ofShortage = 0;
+    var ofWorklessness = 0;
 
-    var dead = 0;
-
-    foreach (var province in _provinces)
+    foreach (var ration in rations.Each.Where(ration => !ration.Class.Profile().AppropriatesSurplus))
     {
-      foreach (var presence in province.Composition.Presences.Where(presence => !presence.Profile.AppropriatesSurplus)
-                 .ToList())
+      var shortage = (int)Math.Floor((ration.Claimed - ration.Provided) * DeathsOfWant);
+      var worklessness = (int)Math.Floor((ration.Heads - ration.Claimed) * DeathsOfWant);
+
+      if (shortage + worklessness > 0)
       {
-        var deaths = (int)Math.Floor(presence.Heads * (1m - provided) * DeathsOfWant);
-
-        if (deaths > 0)
-        {
-          province.Decline(presence.Class, deaths);
-          dead += deaths;
-        }
+        Governed(ration.Province).Decline(ration.Class, shortage + worklessness);
+        ofShortage += shortage;
+        ofWorklessness += worklessness;
       }
     }
 
-    return dead;
+    return new Losses(ofShortage, ofWorklessness);
   }
 
-  /// <summary>A fed people multiplies, class by class. Returns by how many.</summary>
-  public int Multiply()
+  /// <summary>A people multiplies by those who were fed, class by class. Returns by how many.</summary>
+  public int Multiply(Rations rations)
   {
     var born = 0;
 
-    foreach (var province in _provinces)
+    foreach (var ration in rations.Each)
     {
-      foreach (var presence in province.Composition.Presences.ToList())
-      {
-        var growth = (int)Math.Floor(presence.Heads * MonthlyGrowth);
+      var growth = (int)Math.Floor(ration.Provided * MonthlyGrowth);
 
-        if (growth > 0)
-        {
-          province.Grow(presence.Class, growth);
-          born += growth;
-        }
+      if (growth > 0)
+      {
+        Governed(ration.Province).Grow(ration.Class, growth);
+        born += growth;
       }
     }
 
     return born;
+  }
+
+  /// <summary>
+  /// Those out of work long enough fall out of the working class altogether.
+  /// Marx calls pauperism "the hospital of the active labour-army and the dead
+  /// weight of the industrial reserve army" (Capital I, ch. 25 §4): the same
+  /// accumulation that throws workers out of work sinks a share of them below
+  /// it. They become lumpenproletarians, whom no branch will take on again.
+  /// Returns how many sank.
+  /// </summary>
+  public int Pauperise()
+  {
+    var sunk = 0;
+
+    foreach (var province in _provinces)
+    {
+      foreach (var presence in province.Composition.Presences
+                 .Where(presence => presence.Profile.Income.Title() is Access.Employed).ToList())
+      {
+        var sinking = (int)Math.Floor(province.Idle(presence.Class) * Pauperism);
+
+        if (sinking > 0)
+        {
+          province.Transform(presence.Class, SocialClass.Lumpenproletariat, sinking);
+          sunk += sinking;
+        }
+      }
+    }
+
+    return sunk;
   }
 
   /// <summary>

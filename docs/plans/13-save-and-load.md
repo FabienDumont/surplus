@@ -51,7 +51,8 @@ Rules:
 
 - **Everything that has state is saved**, including concluded wars and their peace, techniques (with
   what each develops from and how much labour it takes), the occurrences waiting for the next day
-  (plan 08), each province's own store, the borders and the haulage (plan 10), what each country
+  (plan 08), whether each government relieves the poor (plan 09), each province's own store, the
+  borders and the haulage (plan 10), what each country
   knows and what it has under way, the subsistence basket, each
   branch's current means, hands, working day, necessary labour and output per hour, and each
   commodity's current value.

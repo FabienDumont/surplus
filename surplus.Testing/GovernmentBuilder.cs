@@ -13,6 +13,7 @@ public sealed class GovernmentBuilder
   private GovernmentForm _form = GovernmentForm.Republic;
   private Ideology _ideology = Ideology.Liberalism;
   private List<Law> _laws = [];
+  private bool _relieves;
 
   #endregion
 
@@ -39,7 +40,20 @@ public sealed class GovernmentBuilder
     return this;
   }
 
-  public Government Build() => Government.Of(_form, _ideology, [.._laws]);
+  /// <summary>A state that keeps its poor on relief.</summary>
+  public GovernmentBuilder RelievingThePoor()
+  {
+    _relieves = true;
+
+    return this;
+  }
+
+  public Government Build()
+  {
+    var government = Government.Of(_form, _ideology, [.._laws]);
+
+    return _relieves ? government.Relieving() : government;
+  }
 
   #endregion
 }

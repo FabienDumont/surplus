@@ -107,7 +107,7 @@ public static class EighteenThirtySix
     var lancashire = Province.Establish(
       "Lancashire",
       ClassComposition.Of(
-        ClassPresence.Of(SocialClass.Proletariat, 60_000),
+        ClassPresence.Of(SocialClass.Proletariat, 7_500),
         ClassPresence.Of(SocialClass.Bourgeoisie, 2_000),
         ClassPresence.Of(SocialClass.PettyBourgeoisie, 8_000)
       )
@@ -119,7 +119,7 @@ public static class EighteenThirtySix
     var kent = Province.Establish(
       "Kent",
       ClassComposition.Of(
-        ClassPresence.Of(SocialClass.AgriculturalProletariat, 110_000),
+        ClassPresence.Of(SocialClass.AgriculturalProletariat, 58_500),
         ClassPresence.Of(SocialClass.Landowners, 2_000),
         ClassPresence.Of(SocialClass.Peasantry, 18_000)
       )
@@ -129,7 +129,7 @@ public static class EighteenThirtySix
 
     var country = Country.Found(
       "United Kingdom", CountryControl.Player,
-      Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism), lancashire
+      Government.Of(GovernmentForm.ConstitutionalMonarchy, Ideology.Liberalism).Relieving(), lancashire
     );
     country.Annex(kent);
 
@@ -149,7 +149,7 @@ public static class EighteenThirtySix
       ClassComposition.Of(
         ClassPresence.Of(SocialClass.Peasantry, 60_000),
         ClassPresence.Of(SocialClass.PettyBourgeoisie, 20_000),
-        ClassPresence.Of(SocialClass.Proletariat, 15_000),
+        ClassPresence.Of(SocialClass.Proletariat, 1_300),
         ClassPresence.Of(SocialClass.Bourgeoisie, 1_000),
         ClassPresence.Of(SocialClass.Merchants, 4_000)
       )
