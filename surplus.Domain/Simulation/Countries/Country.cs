@@ -83,25 +83,23 @@ public sealed class Country
   public bool IsPlayed => Control is CountryControl.Player;
 
   /// <summary>
-  /// Everything the country has laid up. It is national and not provincial:
-  /// every province produces into it and draws on it, as though there were no
-  /// distance inside a border, and nothing crosses a border either way.
+  /// Everything the country's provinces have laid up, taken together. It is a
+  /// reading and not a store: nothing is kept at the level of the state, and
+  /// what Kent holds is not in Lancashire until it has been carried there.
   /// </summary>
-  public Store Store { get; private set; }
+  public Store Store => Store.Empty.LaidUp(_provinces.SelectMany(province => province.Store.Stocks));
 
   #endregion
 
   #region Ctors
 
-  private Country(
-    CountryId id, string name, CountryControl control, Government government, List<Province> provinces, Store store)
+  private Country(CountryId id, string name, CountryControl control, Government government, List<Province> provinces)
   {
     Id = id;
     Name = name;
     Control = control;
     Government = government;
     _provinces = provinces;
-    Store = store;
   }
 
   #endregion
@@ -117,7 +115,7 @@ public sealed class Country
       throw new DomainException("A country must have a name.");
     }
 
-    return new Country(CountryId.New(), name.Trim(), control, government, [firstProvince], Store.Empty);
+    return new Country(CountryId.New(), name.Trim(), control, government, [firstProvince]);
   }
 
   /// <summary>
@@ -126,10 +124,9 @@ public sealed class Country
   /// was saved.
   /// </summary>
   public static Country Load(
-    CountryId id, string name, CountryControl control, Government government, IEnumerable<Province> provinces,
-    Store store)
+    CountryId id, string name, CountryControl control, Government government, IEnumerable<Province> provinces)
   {
-    return new Country(id, name, control, government, [.. provinces], store);
+    return new Country(id, name, control, government, [.. provinces]);
   }
 
   public bool Governs(ProvinceId provinceId)
@@ -231,22 +228,13 @@ public sealed class Country
   }
 
   /// <summary>
-  /// Puts something in the store that no day of the simulation produced: the
-  /// granaries and warehouses a scenario opens on, the fruit of labour done
-  /// before the game began.
-  /// </summary>
-  public void LayUp(Stock stock)
-  {
-    Store = Store.LaidUp(stock);
-  }
-
-  /// <summary>
-  /// Works every branch of every province for one day, out of the store and
-  /// into it. A branch works only if the store can replace in kind everything
-  /// it uses up, its whole material and the worn share of its instruments.
-  /// Otherwise it stands idle and takes nothing. What is made today is laid up
-  /// only once every branch has had its turn: a product has to be finished
-  /// before it can enter another process as material.
+  /// Works every branch of every province for one day, out of its own
+  /// province's store and into it. A branch works only if that store can
+  /// replace in kind everything it uses up, its whole material and the worn
+  /// share of its instruments. Otherwise it stands idle and takes nothing, even
+  /// if the next province holds plenty. What is made today is laid up only once
+  /// every branch has had its turn: a product has to be finished before it can
+  /// enter another process as material.
   /// </summary>
   public DayOfProduction WorkOneDay(CommodityRegister register)
   {
@@ -255,11 +243,13 @@ public sealed class Country
 
     foreach (var province in _provinces)
     {
+      List<Stock> made = [];
+
       foreach (var branch in province.Branches)
       {
         var consumed = branch.Means.ConsumedInOnePeriod();
 
-        if (!Store.Holds(consumed))
+        if (!province.Store.Holds(consumed))
         {
           idle.Add(new IdleBranch(province.Id, branch.Produces));
 
@@ -268,40 +258,45 @@ public sealed class Country
 
         var yield = branch.Work(register);
 
-        Store = Store.Drawn(consumed);
+        province.Draw(consumed);
         yields.Add(yield);
+        made.Add(yield.Product);
       }
-    }
 
-    Store = Store.LaidUp(yields.Select(yield => yield.Product));
+      province.LayUp(made);
+    }
 
     return new DayOfProduction(yields, idle);
   }
 
   /// <summary>
-  /// Gives every class what its revenue gives it a title to, so far as the
-  /// store can. The appropriators are served first; every other claim is then
-  /// met in the same proportion. Each basket is taken whole or in proportion,
-  /// never good by good: a people short of cloth does not make it up in corn.
-  /// What is left in the store after this is the surplus product.
+  /// Gives every class what its revenue gives it a title to, so far as its own
+  /// province's store can. In each province the appropriators are served
+  /// first; every other claim is then met in the same proportion. Each basket
+  /// is taken whole or in proportion, never good by good: a people short of
+  /// cloth does not make it up in corn. What is left in the stores after this
+  /// is the surplus product. The country's share is that of its worst-supplied
+  /// province, since that is where the shortage is.
   /// </summary>
   public Rations Provision(Subsistence subsistence)
   {
     var relieved = Government.RelievesThePoor;
-    var claims = _provinces
-      .SelectMany(province => province.Composition.Presences, (province, presence) => Claim(province, presence, relieved))
-      .ToList();
+    List<Ration> each = [];
+    var storeShare = 1m;
 
-    var firstShare = Serve(subsistence, claims.Where(claim => claim.First).Sum(claim => claim.Claimed));
-    var storeShare = Serve(subsistence, claims.Where(claim => !claim.First).Sum(claim => claim.Claimed));
+    foreach (var province in _provinces)
+    {
+      var claims = province.Composition.Presences.Select(presence => Claim(province, presence, relieved)).ToList();
+      var firstShare = Serve(province, subsistence, claims.Where(claim => claim.First).Sum(claim => claim.Claimed));
+      var share = Serve(province, subsistence, claims.Where(claim => !claim.First).Sum(claim => claim.Claimed));
 
-    return new Rations(
-      [
-        .. claims.Select(claim => new Ration(
-          claim.Province, claim.Class, claim.Heads, claim.Workless, claim.Claimed,
-          claim.Claimed * (claim.First ? firstShare : storeShare)))
-      ],
-      storeShare);
+      storeShare = Math.Min(storeShare, share);
+      each.AddRange(claims.Select(claim => new Ration(
+        claim.Province, claim.Class, claim.Heads, claim.Workless, claim.Claimed,
+        claim.Claimed * (claim.First ? firstShare : share))));
+    }
+
+    return new Rations(each, storeShare);
   }
 
   /// <summary>What one class in one province has a title to, in baskets.</summary>
@@ -329,14 +324,14 @@ public sealed class Country
   /// Draws so many baskets from the store, or the largest share of them it can
   /// give, and returns that share.
   /// </summary>
-  private decimal Serve(Subsistence subsistence, decimal baskets)
+  private static decimal Serve(Province province, Subsistence subsistence, decimal baskets)
   {
     var needed = subsistence.PerHead
       .Select(stock => Stock.Of(stock.Commodity, stock.Quantity * baskets))
       .Where(stock => !stock.IsExhausted)
       .ToList();
     var share = needed
-      .Select(stock => Math.Min(1m, Store.AmountOf(stock.Commodity) / stock.Quantity.Amount))
+      .Select(stock => Math.Min(1m, province.Store.AmountOf(stock.Commodity) / stock.Quantity.Amount))
       .DefaultIfEmpty(1m)
       .Min();
 
@@ -346,10 +341,10 @@ public sealed class Country
     [
       .. needed.Select(stock => Stock.Of(
         stock.Commodity,
-        Quantity.Of(Math.Min(stock.Quantity.Amount * share, Store.AmountOf(stock.Commodity)), stock.Quantity.Unit)))
+        Quantity.Of(Math.Min(stock.Quantity.Amount * share, province.Store.AmountOf(stock.Commodity)), stock.Quantity.Unit)))
     ];
 
-    Store = Store.Drawn(taken);
+    province.Draw(taken);
 
     return share;
   }
@@ -447,10 +442,10 @@ public sealed class Country
     var branch = Branch.Open(
       technique.Produces, means, workforce, hands, workingDay, necessaryLabor, technique.OutputPerHour);
 
-    RequireInStore(means.Instruments, hands);
+    RequireInStore(where, means.Instruments, hands);
 
     where.Open(branch);
-    Store = Store.Drawn(means.Instruments);
+    where.Draw(means.Instruments);
   }
 
   /// <summary>Shuts a branch down. Its instruments are scrapped where they stand; nothing returns to the store.</summary>
@@ -466,10 +461,10 @@ public sealed class Country
     var branch = BranchWorking(where, commodity);
     var instruments = branch.Means.Scaled((decimal)Math.Max(hands, 0) / branch.Hands).Instruments;
 
-    RequireInStore(instruments, hands);
+    RequireInStore(where, instruments, hands);
 
     where.Employ(commodity, hands);
-    Store = Store.Drawn(instruments);
+    where.Draw(instruments);
   }
 
   /// <summary>Turns hands out. The instruments they worked at are scrapped, not returned to the store.</summary>
@@ -495,10 +490,10 @@ public sealed class Country
     var branch = BranchWorking(where, commodity);
     var means = technique.EquipFor(branch.Hands);
 
-    RequireInStore(means.Instruments, branch.Hands);
+    RequireInStore(where, means.Instruments, branch.Hands);
 
     where.Reequip(commodity, means, technique.OutputPerHour);
-    Store = Store.Drawn(means.Instruments);
+    where.Draw(means.Instruments);
   }
 
   /// <summary>Fixes how long a day the hands in one branch work.</summary>
@@ -524,9 +519,9 @@ public sealed class Country
   /// is lacking in its own unit. The country keeps no register of names, and a
   /// shortfall of so many machines is what the player needs to know anyway.
   /// </summary>
-  private void RequireInStore(IReadOnlyList<Stock> instruments, int hands)
+  private static void RequireInStore(Province province, IReadOnlyList<Stock> instruments, int hands)
   {
-    if (Store.Holds(instruments))
+    if (province.Store.Holds(instruments))
     {
       return;
     }
@@ -534,12 +529,12 @@ public sealed class Country
     var lacking = instruments
       .GroupBy(stock => stock.Commodity)
       .Select(group => (Unit: group.First().Quantity.Unit, Needed: group.Sum(stock => stock.Quantity.Amount),
-                        Held: Store.AmountOf(group.Key)))
+                        Held: province.Store.AmountOf(group.Key)))
       .Where(need => need.Needed > need.Held)
       .Select(need => Quantity.Of(need.Needed - need.Held, need.Unit).ToString());
 
     throw new DomainException(
-      $"There is not enough in store to equip {hands} {(hands == 1 ? "hand" : "hands")}: " +
+      $"There is not enough in store in {province.Name} to equip {hands} {(hands == 1 ? "hand" : "hands")}: " +
       $"{string.Join(", ", lacking)} lacking.");
   }
 

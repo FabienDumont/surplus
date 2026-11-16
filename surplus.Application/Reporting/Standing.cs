@@ -1,3 +1,4 @@
+using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Society;
 
@@ -15,11 +16,22 @@ public static class Standing
   /// </summary>
   public static decimal? DaysOfSubsistence(Country country, Subsistence subsistence)
   {
-    var needs = subsistence.For(country.Population).Where(need => !need.IsExhausted).ToList();
+    return DaysOf(country.Store, country.Population, subsistence);
+  }
+
+  /// <summary>The same reading for one province, out of its own store.</summary>
+  public static decimal? DaysOfSubsistence(Province province, Subsistence subsistence)
+  {
+    return DaysOf(province.Store, province.Population, subsistence);
+  }
+
+  private static decimal? DaysOf(Store store, int heads, Subsistence subsistence)
+  {
+    var needs = subsistence.For(heads).Where(need => !need.IsExhausted).ToList();
 
     return needs.Count == 0
       ? null
-      : needs.Min(need => country.Store.AmountOf(need.Commodity) / need.Quantity.Amount);
+      : needs.Min(need => store.AmountOf(need.Commodity) / need.Quantity.Amount);
   }
 
   /// <summary>

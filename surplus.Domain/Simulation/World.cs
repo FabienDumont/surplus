@@ -1,6 +1,7 @@
 using Surplus.Domain.GameEngine;
 using Surplus.Domain.SharedKernel;
 using Surplus.Domain.Simulation.Chronicle;
+using Surplus.Domain.Simulation.Circulation;
 using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Production;
@@ -31,6 +32,7 @@ public sealed class World
   /// </summary>
   private static readonly decimal ReportedMovement = 0.01m;
 
+  private readonly List<Border> _borders;
   private readonly List<Country> _countries;
 
   /// <summary>
@@ -58,6 +60,15 @@ public sealed class World
 
   public IReadOnlyList<Country> Countries => _countries;
 
+  /// <summary>
+  /// Which provinces touch. Goods cross a border only between two provinces of
+  /// the same country; a border between two states waits for war and trade.
+  /// </summary>
+  public IReadOnlyList<Border> Borders => _borders;
+
+  /// <summary>What carrying goods across a border costs.</summary>
+  public Haulage Haulage { get; }
+
   /// <summary>Every war ever declared, concluded ones included as a record.</summary>
   public IReadOnlyList<War> Wars => _wars;
 
@@ -79,12 +90,14 @@ public sealed class World
 
   private World(
     CommodityRegister register, List<Technique> techniques, Subsistence subsistence, List<Country> countries,
-    List<War> wars, List<Occurrence> pending)
+    List<Border> borders, Haulage haulage, List<War> wars, List<Occurrence> pending)
   {
     Register = register;
     _techniques = techniques;
     Subsistence = subsistence;
     _countries = countries;
+    _borders = borders;
+    Haulage = haulage;
     _wars = wars;
     _pending = pending;
   }
@@ -99,11 +112,12 @@ public sealed class World
   /// state that claims it while another holds it is at war, not sharing it.
   /// Every technique must make a registered commodity, in its own unit, out of
   /// registered means of production. The basket can hold only articles of
-  /// consumption, each in the unit it is measured in.
+  /// consumption, each in the unit it is measured in. A border joins two
+  /// provinces of the world, and is drawn once.
   /// </summary>
   public static World Assemble(
     CommodityRegister register, IEnumerable<Technique> techniques, Subsistence subsistence,
-    IEnumerable<Country> countries)
+    IEnumerable<Country> countries, IEnumerable<Border> borders, Haulage haulage)
   {
     List<Technique> catalogue = [.. techniques];
 
@@ -143,7 +157,47 @@ public sealed class World
 
     RejectUnfitBasket(register, subsistence);
 
-    return new World(register, catalogue, subsistence, assembled, [], []);
+    List<Border> drawn = [.. borders];
+
+    RejectUnfitBorders(assembled, drawn);
+    RejectUnfitHaulage(register, haulage);
+
+    return new World(register, catalogue, subsistence, assembled, drawn, haulage, [], []);
+  }
+
+  private static void RejectUnfitBorders(List<Country> countries, List<Border> borders)
+  {
+    foreach (var border in borders)
+    {
+      if (!countries.Any(country => country.Governs(border.One)) ||
+          !countries.Any(country => country.Governs(border.Other)))
+      {
+        throw new DomainException("A border must join two provinces of the world.");
+      }
+
+      if (border.One == border.Other)
+      {
+        throw new DomainException("A province has no border with itself.");
+      }
+    }
+
+    if (borders.Distinct().Count() != borders.Count)
+    {
+      throw new DomainException("The same border cannot be drawn twice.");
+    }
+  }
+
+  private static void RejectUnfitHaulage(CommodityRegister register, Haulage haulage)
+  {
+    if (haulage.Carriage is { } carriage && Registered(register, carriage) is null)
+    {
+      throw new DomainException("Carriage must be a commodity in play.");
+    }
+
+    if (haulage.Bulk.Any(bulk => Registered(register, bulk.Commodity) is null))
+    {
+      throw new DomainException("Haulage names a commodity that is not in play.");
+    }
   }
 
   private static void RejectUnfitBasket(CommodityRegister register, Subsistence subsistence)
@@ -213,9 +267,11 @@ public sealed class World
   /// </summary>
   public static World Load(
     CommodityRegister register, IEnumerable<Technique> techniques, Subsistence subsistence,
-    IEnumerable<Country> countries, IEnumerable<War> wars, IEnumerable<Occurrence> pending)
+    IEnumerable<Country> countries, IEnumerable<Border> borders, Haulage haulage, IEnumerable<War> wars,
+    IEnumerable<Occurrence> pending)
   {
-    return new World(register, [.. techniques], subsistence, [.. countries], [.. wars], [.. pending]);
+    return new World(
+      register, [.. techniques], subsistence, [.. countries], [.. borders], haulage, [.. wars], [.. pending]);
   }
 
   public Technique Technique(string name)
@@ -369,20 +425,15 @@ public sealed class World
   }
 
   /// <summary>
-  /// The loser ceases to exist. Its territory and its stores pass to the
-  /// victor, and every other war it was fighting ends with it, since there is
-  /// no one left to fight it.
+  /// The loser ceases to exist. Its territory passes to the victor, and its
+  /// stores with it, since they are kept province by province. Every other war
+  /// it was fighting ends with it, since there is no one left to fight it.
   /// </summary>
   private void Swallow(Country winner, Country loser)
   {
     foreach (var province in loser.Surrender())
     {
       winner.Annex(province);
-    }
-
-    foreach (var stock in loser.Store.Stocks)
-    {
-      winner.LayUp(stock);
     }
 
     _countries.Remove(loser);
@@ -401,8 +452,9 @@ public sealed class World
   /// Lets one day pass for every country in the world, and tells what came of
   /// it. Every country works first; only then is what the day's production
   /// cost settled into the value of each commodity, across all of them at once.
-  /// The new values set what keeping a hand costs. Then everyone takes their
-  /// basket out of the store, so far as their revenue gives them a title to
+  /// The new values set what keeping a hand costs. Goods then cross the
+  /// borders inside each country, and everyone takes their basket out of their
+  /// own province's store, so far as their revenue gives them a title to
   /// it, and those who went without die of it. On the first of the month every
   /// open war is fought, a share of the unemployed sink into pauperism, and
   /// those who were fed multiply. What was declared or signed since the last day
@@ -429,6 +481,9 @@ public sealed class World
         .Select(Revalued));
 
     SettleNecessaryLabor();
+
+    // What is eaten today is what reached the province today.
+    occurrences.AddRange(Traffic.Circulate(this));
 
     List<(Country Country, Rations Rations)> fed = [];
 

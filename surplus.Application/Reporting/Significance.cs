@@ -24,6 +24,7 @@ public static class Significance
     {
       PeopleWentWithout famine => AtHomeOrAbroad(famine.Country, world),
       BranchStoodIdle idle => AtHomeOrAbroad(idle.Country, world),
+      CarriageFellShort carts => AtHomeOrAbroad(carts.Country, world),
       CommodityWasRevalued => Importance.Notable,
       PopulationGrew => Importance.Routine,
       // What the player did needs no stopping for; what was done to them does.

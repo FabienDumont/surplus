@@ -26,6 +26,14 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
   /// <summary>The smallest net movement of value over a passage worth a line.</summary>
   private static readonly decimal ReportedMovement = 0.01m;
 
+  /// <summary>
+  /// Below this many days of its own basket, a province is named in the digest.
+  /// Circulation keeps every province at about ten days, and it eats one before
+  /// the next delivery, so a province is only running low once it falls to half
+  /// that.
+  /// </summary>
+  private static readonly decimal ProvincesRunningLow = 5m;
+
   #endregion
 
   #region Methods
@@ -68,6 +76,7 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
     if (world.Played is { } played)
     {
       lines.Add(Where(played, world));
+      lines.AddRange(RunningLow(played, world));
       lines.Add(StoreChange(played, passage.PlayedStoreBefore ?? Store.Empty, world, units));
     }
 
@@ -184,6 +193,22 @@ public sealed record Digest(GameDate From, GameDate To, bool Interrupted, IReadO
 
     return $"{country.Name}: {Number(country.Population)} souls, {provisions}, " +
            $"{Number(Standing.WithoutWork(country))} without work.";
+  }
+
+  /// <summary>
+  /// The player's provinces whose own store would keep their people fewer
+  /// than five days. The country can be well stocked while a province goes
+  /// hungry, because what is in Kent is not yet in Lancashire.
+  /// </summary>
+  private static IEnumerable<string> RunningLow(Country country, World world)
+  {
+    foreach (var province in country.Provinces)
+    {
+      if (Standing.DaysOfSubsistence(province, world.Subsistence) is { } days && days < ProvincesRunningLow)
+      {
+        yield return $"{province.Name}: {Number(Math.Floor(days))} days of subsistence in store.";
+      }
+    }
   }
 
   private static string StoreChange(Country country, Store before, World world, UnitSystem units)

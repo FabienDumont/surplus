@@ -26,6 +26,27 @@ Three things in Marx shape the rules:
 
 Nothing crosses a border between two countries. Trade between states is later work.
 
+## As built
+
+Where the build departs from the text below:
+
+- **The day's movement is `Traffic.Circulate`.** A static class called `Circulation` would share
+  its name with its own namespace.
+- **Bulk is a `Bulk(CommodityId, decimal)` record**, not a tuple.
+- **`Haulage.None`** is a haulage with no carriage at all, where nothing limits what crosses a
+  border. It is the builder's default, and `Assemble` accepts it.
+- **`Rations` keeps one `StoreShare`:** the worst-supplied province's. A shortage is reported for
+  the country with the share of the province where it was worst.
+- **The digest names a played province only below five days of its basket, not ten.** Circulation
+  keeps every province near ten days, and each eats one before the next delivery. At ten, both
+  British provinces were named every month whatever happened.
+- **Goods do not pass through a province that has enough.** A province sends only toward a
+  neighbour below its own target. Goods therefore reach a province two borders away only if the one
+  between is short too, and this text's "reached in two days" is wrong. The 1836 scenario has only
+  pairs of provinces. It is recorded as a known simplification in the README.
+- **`Country.Load` lost its store parameter.** `CountryBuilder.Holding` lays its heaps up in the
+  country's first province.
+
 ## Read first
 
 - `docs/plans/README.md`, decisions 3, 5 and 9

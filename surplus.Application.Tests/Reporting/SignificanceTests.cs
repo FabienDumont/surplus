@@ -68,6 +68,15 @@ public class SignificanceTests
   }
 
   [Fact]
+  public void Carts_falling_short_at_home_are_urgent_and_abroad_are_notable()
+  {
+    var world = Kingdom();
+
+    Assert.Equal(Importance.Urgent, Significance.Of(new CarriageFellShort("United Kingdom", "Kent", "Corn"), world));
+    Assert.Equal(Importance.Notable, Significance.Of(new CarriageFellShort("Russia", "Muscovy", "Cloth"), world));
+  }
+
+  [Fact]
   public void The_front_is_routine()
   {
     Assert.Equal(Importance.Routine, Significance.Of(new TheFrontMoved("Russia", "United Kingdom", -4), Kingdom()));

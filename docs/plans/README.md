@@ -142,6 +142,8 @@ These are deliberate gaps. Do not fix them in passing; they are the work that fo
   There is no money, and wages and profit are titles to the basket, not sums paid. Every class takes
   the same basket, so the appropriators consume no luxuries.
 - A wage feeds one head. Families and dependants are not modelled.
+- There is no transit. A province sends goods only toward a neighbour below its own ten-day target,
+  so goods pass through a province that has enough of them only if it too runs short.
 - Lengthening the working day raises output without raising the material consumed, because a branch's
   material is fixed per hand per day.
 - A province holds one branch per commodity with one workforce class, so a province cannot run a

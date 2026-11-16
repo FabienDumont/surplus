@@ -1,4 +1,6 @@
 using Surplus.Application.Reporting;
+using Surplus.Domain.Simulation.Commodities;
+using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
 using Surplus.Testing;
 
@@ -21,6 +23,19 @@ public class StandingTests
 
     // Forty proletarians out of work; the craftsmen live off their workshops and the paupers off nothing.
     Assert.Equal(40, Standing.WithoutWork(kingdom));
+  }
+
+  [Fact]
+  public void A_province_is_kept_as_long_as_its_own_store_lasts()
+  {
+    var cloth = CommodityId.New();
+    var metre = UnitOfMeasure.Of("m");
+    var basket = Subsistence.Of(Stock.Of(cloth, Quantity.Of(0.5m, metre)));
+    var lancashire = new ProvinceBuilder().WithClasses(ClassPresence.Of(SocialClass.Proletariat, 100))
+      .Holding(Stock.Of(cloth, Quantity.Of(150m, metre))).Build();
+
+    Assert.Equal(3m, Standing.DaysOfSubsistence(lancashire, basket));
+    Assert.Null(Standing.DaysOfSubsistence(new ProvinceBuilder().Unpeopled().Build(), basket));
   }
 
   [Fact]

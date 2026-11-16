@@ -2,6 +2,7 @@ using Surplus.Domain.GameEngine;
 using Surplus.Domain.SharedKernel;
 using Surplus.Domain.Simulation;
 using Surplus.Domain.Simulation.Chronicle;
+using Surplus.Domain.Simulation.Circulation;
 using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Production;
@@ -36,7 +37,7 @@ public class WorldTests
     var france = new CountryBuilder().WithName("France").Build();
     var prussia = new CountryBuilder().WithName("Prussia").Build();
 
-    var world = World.Assemble(register, [], Unfed, [france, prussia]);
+    var world = World.Assemble(register, [], Unfed, [france, prussia], [], Haulage.None);
 
     Assert.Same(register, world.Register);
     Assert.Equal([france, prussia], world.Countries);
@@ -46,7 +47,7 @@ public class WorldTests
   [Fact]
   public void A_world_with_no_country_in_it_is_no_world()
   {
-    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, []));
+    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [], [], Haulage.None));
   }
 
   [Fact]
@@ -56,7 +57,7 @@ public class WorldTests
     var france = new CountryBuilder().WithId(id).Build();
     var again = new CountryBuilder().WithId(id).Build();
 
-    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [france, again]));
+    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [france, again], [], Haulage.None));
   }
 
   [Fact]
@@ -66,7 +67,7 @@ public class WorldTests
     var france = new CountryBuilder().WithName("France").WithProvinces(alsace).Build();
     var prussia = new CountryBuilder().WithName("Prussia").WithProvinces(alsace).Build();
 
-    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [france, prussia]));
+    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [france, prussia], [], Haulage.None));
   }
 
   [Fact]
@@ -75,7 +76,7 @@ public class WorldTests
     var france = new CountryBuilder().Played().Build();
     var prussia = new CountryBuilder().Played().Build();
 
-    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [france, prussia]));
+    Assert.Throws<DomainException>(() => World.Assemble(CommodityRegister.Of(), [], Unfed, [france, prussia], [], Haulage.None));
   }
 
   [Fact]
@@ -84,7 +85,7 @@ public class WorldTests
     var (register, cloth, yarn) = Weaving();
 
     Assert.Throws<DomainException>(
-      () => World.Assemble(register, [HandLoom(cloth, yarn), HandLoom(cloth, yarn)], Unfed, [new CountryBuilder().Build()]));
+      () => World.Assemble(register, [HandLoom(cloth, yarn), HandLoom(cloth, yarn)], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -94,7 +95,7 @@ public class WorldTests
     var unregistered = new CommodityBuilder().WithName("Silk").Build();
 
     Assert.Throws<DomainException>(
-      () => World.Assemble(register, [HandLoom(unregistered, yarn)], Unfed, [new CountryBuilder().Build()]));
+      () => World.Assemble(register, [HandLoom(unregistered, yarn)], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -104,7 +105,7 @@ public class WorldTests
     var byThePound = Technique.Of(
       "Weighing loom", cloth.Id, ProductiveForm.Handicraft, Quantity.Of(1m, Pound), 0m, [], []);
 
-    Assert.Throws<DomainException>(() => World.Assemble(register, [byThePound], Unfed, [new CountryBuilder().Build()]));
+    Assert.Throws<DomainException>(() => World.Assemble(register, [byThePound], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -114,7 +115,7 @@ public class WorldTests
     var unregistered = new CommodityBuilder().WithName("Silk").WithDepartment(Department.MeansOfProduction).Build();
 
     Assert.Throws<DomainException>(
-      () => World.Assemble(register, [HandLoom(cloth, unregistered)], Unfed, [new CountryBuilder().Build()]));
+      () => World.Assemble(register, [HandLoom(cloth, unregistered)], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -125,7 +126,7 @@ public class WorldTests
       "Patchwork", cloth.Id, ProductiveForm.Handicraft, Quantity.Of(1m, Yard), 0m,
       [Stock.Of(cloth.Id, Quantity.Of(1m, Yard))], []);
 
-    Assert.Throws<DomainException>(() => World.Assemble(register, [tailoring], Unfed, [new CountryBuilder().Build()]));
+    Assert.Throws<DomainException>(() => World.Assemble(register, [tailoring], Unfed, [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -134,7 +135,7 @@ public class WorldTests
     var (register, corn, cloth, _) = Fed();
     var basket = Basket(corn, cloth);
 
-    var world = World.Assemble(register, [], basket, [new CountryBuilder().Build()]);
+    var world = World.Assemble(register, [], basket, [new CountryBuilder().Build()], [], Haulage.None);
 
     Assert.Same(basket, world.Subsistence);
   }
@@ -145,7 +146,7 @@ public class WorldTests
     var (register, _, _, iron) = Fed();
 
     Assert.Throws<DomainException>(() => World.Assemble(
-      register, [], Subsistence.Of(Stock.Of(iron.Id, Quantity.Of(0.01m, Tonne))), [new CountryBuilder().Build()]));
+      register, [], Subsistence.Of(Stock.Of(iron.Id, Quantity.Of(0.01m, Tonne))), [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -155,7 +156,7 @@ public class WorldTests
     var bread = new CommodityBuilder().WithName("Bread").Build();
 
     Assert.Throws<DomainException>(() => World.Assemble(
-      register, [], Subsistence.Of(Stock.Of(bread.Id, Quantity.Of(1m, Pound))), [new CountryBuilder().Build()]));
+      register, [], Subsistence.Of(Stock.Of(bread.Id, Quantity.Of(1m, Pound))), [new CountryBuilder().Build()], [], Haulage.None));
   }
 
   [Fact]
@@ -164,7 +165,69 @@ public class WorldTests
     var (register, corn, _, _) = Fed();
 
     Assert.Throws<DomainException>(() => World.Assemble(
-      register, [], Subsistence.Of(Stock.Of(corn.Id, Quantity.Of(50m, Pound))), [new CountryBuilder().Build()]));
+      register, [], Subsistence.Of(Stock.Of(corn.Id, Quantity.Of(50m, Pound))), [new CountryBuilder().Build()], [], Haulage.None));
+  }
+
+  [Fact]
+  public void A_world_keeps_the_borders_and_the_haulage_it_was_assembled_with()
+  {
+    var (register, corn, _, iron) = Fed();
+    var kent = new ProvinceBuilder().WithName("Kent").Build();
+    var lancashire = new ProvinceBuilder().WithName("Lancashire").Build();
+    var britain = new CountryBuilder().WithProvinces(kent, lancashire).Build();
+    var haulage = Haulage.Of(iron.Id, [new Bulk(corn.Id, 1m)]);
+
+    var world = World.Assemble(register, [], Unfed, [britain], [new Border(kent.Id, lancashire.Id)], haulage);
+
+    Assert.Equal([new Border(kent.Id, lancashire.Id)], world.Borders);
+    Assert.Same(haulage, world.Haulage);
+  }
+
+  [Fact]
+  public void A_border_must_join_two_provinces_of_the_world()
+  {
+    var kent = new ProvinceBuilder().Build();
+    var britain = new CountryBuilder().WithProvinces(kent).Build();
+
+    Assert.Throws<DomainException>(() => World.Assemble(
+      CommodityRegister.Of(), [], Unfed, [britain], [new Border(kent.Id, ProvinceId.New())], Haulage.None));
+    Assert.Throws<DomainException>(() => World.Assemble(
+      CommodityRegister.Of(), [], Unfed, [britain], [new Border(ProvinceId.New(), kent.Id)], Haulage.None));
+  }
+
+  [Fact]
+  public void A_province_has_no_border_with_itself()
+  {
+    var kent = new ProvinceBuilder().Build();
+    var britain = new CountryBuilder().WithProvinces(kent).Build();
+
+    Assert.Throws<DomainException>(() => World.Assemble(
+      CommodityRegister.Of(), [], Unfed, [britain], [new Border(kent.Id, kent.Id)], Haulage.None));
+  }
+
+  [Fact]
+  public void A_border_cannot_be_drawn_twice()
+  {
+    var kent = new ProvinceBuilder().Build();
+    var lancashire = new ProvinceBuilder().Build();
+    var britain = new CountryBuilder().WithProvinces(kent, lancashire).Build();
+
+    Assert.Throws<DomainException>(() => World.Assemble(
+      CommodityRegister.Of(), [], Unfed, [britain],
+      [new Border(kent.Id, lancashire.Id), new Border(lancashire.Id, kent.Id)], Haulage.None));
+  }
+
+  [Fact]
+  public void Haulage_carries_only_commodities_in_play()
+  {
+    var (register, corn, _, _) = Fed();
+    var stranger = CommodityId.New();
+    var britain = new CountryBuilder().Build();
+
+    Assert.Throws<DomainException>(() => World.Assemble(
+      register, [], Unfed, [britain], [], Haulage.Of(stranger, [new Bulk(corn.Id, 1m)])));
+    Assert.Throws<DomainException>(() => World.Assemble(
+      register, [], Unfed, [britain], [], Haulage.Of(corn.Id, [new Bulk(stranger, 1m)])));
   }
 
   [Fact]
@@ -173,7 +236,7 @@ public class WorldTests
     var (register, cloth, yarn) = Weaving();
     var handLoom = HandLoom(cloth, yarn);
 
-    var world = World.Assemble(register, [handLoom], Unfed, [new CountryBuilder().Build()]);
+    var world = World.Assemble(register, [handLoom], Unfed, [new CountryBuilder().Build()], [], Haulage.None);
 
     Assert.Equal([handLoom], world.Techniques);
     Assert.Same(handLoom, world.Technique("Hand loom"));
@@ -231,7 +294,7 @@ public class WorldTests
     var prussia = new CountryBuilder().Played().Build();
     var war = new WarBuilder().WithAggressor(prussia.Id).WithDefender(france.Id).Build();
 
-    var world = World.Load(register, [], Unfed, [france, prussia], [war], []);
+    var world = World.Load(register, [], Unfed, [france, prussia], [], Haulage.None, [war], []);
 
     Assert.Same(register, world.Register);
     Assert.Equal([france, prussia], world.Countries);
@@ -837,6 +900,42 @@ public class WorldTests
 
     Assert.Throws<DomainException>(() => world.MakePeace(war.Id, CountryId.New(), Peace.White()));
     Assert.False(war.IsOver);
+  }
+
+  [Fact]
+  public void A_ceded_province_takes_its_store_with_it()
+  {
+    var (register, corn, _, _) = Fed();
+    var prussia = Nation("Prussia", ClassPresence.Of(SocialClass.Serfs, 10_000));
+    var alsace = new ProvinceBuilder().WithName("Alsace").Holding(Stock.Of(corn.Id, Quantity.Of(500m, Tonne))).Build();
+    var france = new CountryBuilder().WithName("France")
+      .WithProvinces(alsace, new ProvinceBuilder().WithName("Paris").Build()).Build();
+    var war = new WarBuilder().WithAggressor(prussia.Id).WithDefender(france.Id).WithMomentum(30).Build();
+    var world = new WorldBuilder().WithRegister(register).WithCountries(prussia, france).WithWars(war).Build();
+
+    world.MakePeace(war.Id, prussia.Id, Peace.Ceding(alsace.Id));
+
+    Assert.Equal(500m, prussia.Store.AmountOf(corn.Id));
+    Assert.Equal(0m, france.Store.AmountOf(corn.Id));
+  }
+
+  [Fact]
+  public void Circulation_comes_before_anyone_eats()
+  {
+    var (register, corn, cloth, _) = Fed();
+    var kent = new ProvinceBuilder().WithName("Kent").WithClasses(ClassPresence.Of(SocialClass.Bourgeoisie, 1))
+      .Holding(Stock.Of(corn.Id, Quantity.Of(1_000m, Tonne)), Stock.Of(cloth.Id, Quantity.Of(1_000m, Yard))).Build();
+    var lancashire = new ProvinceBuilder().WithName("Lancashire").WithClasses(ClassPresence.Of(SocialClass.Serfs, 10))
+      .Build();
+    var britain = new CountryBuilder().WithName("United Kingdom").WithProvinces(kent, lancashire).Build();
+    var world = new WorldBuilder().WithRegister(register).WithSubsistence(Basket(corn, cloth)).WithCountries(britain)
+      .WithBorders(new Border(kent.Id, lancashire.Id)).Build();
+
+    var report = world.Elapse(GameDate.Of(1836, 1, 2));
+
+    // Lancashire held nothing this morning; what Kent sent it fed it the same day.
+    Assert.Empty(report.Of<PeopleWentWithout>());
+    Assert.True(lancashire.Store.AmountOf(corn.Id) > 0m);
   }
 
   [Fact]

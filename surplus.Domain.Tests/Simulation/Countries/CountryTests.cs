@@ -283,7 +283,7 @@ public class CountryTests
     var bushel = UnitOfMeasure.Of("bushel");
     var france = new CountryBuilder().Holding(Stock.Of(corn, Quantity.Of(10m, bushel))).Build();
 
-    france.LayUp(Stock.Of(corn, Quantity.Of(5m, bushel)));
+    france.Provinces[0].LayUp(Stock.Of(corn, Quantity.Of(5m, bushel)));
 
     Assert.Equal(15m, france.Store.AmountOf(corn));
   }
@@ -313,7 +313,7 @@ public class CountryTests
     var refusal = Assert.Throws<DomainException>(
       () => britain.OpenBranch(lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Serfs, 40, Day, Necessary));
 
-    Assert.Equal("There is not enough in store to equip 40 hands: 10 loom lacking.", refusal.Message);
+    Assert.Equal("There is not enough in store in Île-de-France to equip 40 hands: 10 loom lacking.", refusal.Message);
     Assert.Empty(lancashire.Branches);
     Assert.Equal(Store.Of(LoomsOf(loom, 10m)), britain.Store);
   }
@@ -467,6 +467,87 @@ public class CountryTests
 
     Assert.Equal(LaborTime.FromHours(10m), weaving.WorkingDay);
     Assert.Throws<DomainException>(() => britain.FixTheWorkingDay(ProvinceId.New(), cloth.Id, Day));
+  }
+
+  [Fact]
+  public void A_branch_works_out_of_its_own_provinces_store()
+  {
+    var (register, cloth, yarn, _) = Weaving();
+    var weaving = WeavingBranch(cloth, MeansOfProduction.SetInMotion(
+      ProductiveForm.Handicraft, 0m, [], [Stock.Of(yarn.Id, Quantity.Of(20m, Pound))]));
+    var lancashire = new ProvinceBuilder().WithName("Lancashire").Working(weaving)
+      .Holding(Stock.Of(yarn.Id, Quantity.Of(50m, Pound))).Build();
+    var kent = new ProvinceBuilder().WithName("Kent").Holding(Stock.Of(yarn.Id, Quantity.Of(50m, Pound))).Build();
+    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Build();
+
+    britain.WorkOneDay(register);
+
+    Assert.Equal(30m, lancashire.Store.AmountOf(yarn.Id));
+    Assert.Equal(48m, lancashire.Store.AmountOf(cloth.Id));
+    Assert.Equal(50m, kent.Store.AmountOf(yarn.Id));
+    Assert.Equal(0m, kent.Store.AmountOf(cloth.Id));
+  }
+
+  [Fact]
+  public void A_branch_stands_idle_for_want_of_material_its_neighbour_holds()
+  {
+    var (register, cloth, yarn, _) = Weaving();
+    var weaving = WeavingBranch(cloth, MeansOfProduction.SetInMotion(
+      ProductiveForm.Handicraft, 0m, [], [Stock.Of(yarn.Id, Quantity.Of(20m, Pound))]));
+    var lancashire = new ProvinceBuilder().WithName("Lancashire").Working(weaving).Build();
+    var kent = new ProvinceBuilder().WithName("Kent").Holding(Stock.Of(yarn.Id, Quantity.Of(500m, Pound))).Build();
+    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Build();
+
+    var day = britain.WorkOneDay(register);
+
+    Assert.Equal([new IdleBranch(lancashire.Id, cloth.Id)], day.Idle);
+    Assert.Equal(500m, kent.Store.AmountOf(yarn.Id));
+  }
+
+  [Fact]
+  public void A_branch_is_equipped_out_of_its_own_provinces_store()
+  {
+    var (_, cloth, yarn, loom) = Weaving();
+    var lancashire = new ProvinceBuilder().WithName("Lancashire")
+      .WithClasses(ClassPresence.Of(SocialClass.Proletariat, 100)).Build();
+    var kent = new ProvinceBuilder().WithName("Kent").Holding(LoomsOf(loom, 100m)).Build();
+    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Build();
+
+    var refusal = Assert.Throws<DomainException>(() => britain.OpenBranch(
+      lancashire.Id, PowerLoom(cloth, yarn, loom), SocialClass.Proletariat, 40, Day, Necessary));
+
+    Assert.Equal("There is not enough in store in Lancashire to equip 40 hands: 20 loom lacking.", refusal.Message);
+    Assert.Equal(100m, kent.Store.AmountOf(loom.Id));
+  }
+
+  [Fact]
+  public void A_country_holds_what_its_provinces_hold()
+  {
+    var (_, _, yarn, loom) = Weaving();
+    var lancashire = new ProvinceBuilder().Holding(Stock.Of(yarn.Id, Quantity.Of(30m, Pound)), LoomsOf(loom, 2m)).Build();
+    var kent = new ProvinceBuilder().Holding(Stock.Of(yarn.Id, Quantity.Of(12m, Pound))).Build();
+    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Build();
+
+    Assert.Equal(42m, britain.Store.AmountOf(yarn.Id));
+    Assert.Equal(2m, britain.Store.AmountOf(loom.Id));
+  }
+
+  [Fact]
+  public void Each_province_eats_out_of_its_own_store()
+  {
+    var (corn, cloth, basket) = Basket();
+    var lancashire = new ProvinceBuilder().WithName("Lancashire").WithClasses(ClassPresence.Of(SocialClass.Serfs, 10)).Build();
+    var kent = new ProvinceBuilder().WithName("Kent").WithClasses(ClassPresence.Of(SocialClass.Serfs, 10))
+      .Holding(Corn(corn, 1_000m), Cloth(cloth, 1_000m)).Build();
+    var britain = new CountryBuilder().WithProvinces(lancashire, kent).Build();
+
+    var rations = britain.Provision(basket);
+
+    // Kent's granaries feed Kent; Lancashire, holding nothing, gets nothing.
+    Assert.Equal(0m, rations.StoreShare);
+    Assert.Equal(0m, rations.Each.Single(ration => ration.Province == lancashire.Id).Provided);
+    Assert.Equal(10m, rations.Each.Single(ration => ration.Province == kent.Id).Provided);
+    Assert.Equal(990m, kent.Store.AmountOf(corn.Id));
   }
 
   [Fact]

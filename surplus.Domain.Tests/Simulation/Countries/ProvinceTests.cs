@@ -383,5 +383,23 @@ public class ProvinceTests
     Assert.Equal(LaborTime.FromHours(6m), weaving.NecessaryLabor);
   }
 
+  [Fact]
+  public void What_a_scenario_lays_up_in_a_province_is_added_to_its_store()
+  {
+    var corn = CommodityId.New();
+    var tonne = UnitOfMeasure.Of("t");
+    var kent = new ProvinceBuilder().Holding(Stock.Of(corn, Quantity.Of(10m, tonne))).Build();
+
+    kent.LayUp(Stock.Of(corn, Quantity.Of(5m, tonne)));
+
+    Assert.Equal(15m, kent.Store.AmountOf(corn));
+  }
+
+  [Fact]
+  public void A_province_is_established_with_nothing_laid_up()
+  {
+    Assert.Equal(Store.Empty, Province.Establish("Kent", ClassComposition.Empty).Store);
+  }
+
   #endregion
 }

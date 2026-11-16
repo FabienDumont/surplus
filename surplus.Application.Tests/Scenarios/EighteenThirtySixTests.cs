@@ -76,8 +76,8 @@ public class EighteenThirtySixTests
   /// Iron and Machinery rise by what was made less what production used up.
   /// </summary>
   [Theory]
-  [InlineData("United Kingdom", "3041.875", "72837.5", 3_000, 6, 7)]
-  [InlineData("United States", "435", "9900", 21_000, 18, 6)]
+  [InlineData("United Kingdom", "3035.375", "72707.5", 3_000, 6, 7)]
+  [InlineData("United States", "434.675", "9893.5", 21_000, 18, 6)]
   [InlineData("Russia", "150", "3000", 1_500, 0, 0)]
   public void Each_country_produces_what_the_scenario_says_in_a_day(
     string name, string cornLeft, string clothLeft, int fibre, int iron, int machinery)
@@ -124,7 +124,8 @@ public class EighteenThirtySixTests
         ["Cloth"] = 2.4175m,
         ["Fibre"] = 2m,
         ["Iron"] = 100m,
-        ["Machinery"] = 2_100m
+        ["Machinery"] = 2_100m,
+        ["Carriage"] = 10m
       },
       Values(world));
   }
@@ -236,14 +237,80 @@ public class EighteenThirtySixTests
       [
         "Cloth: 2.00 → 2.42 h per m",
         "Corn: 120.00 → 130.45 h per t",
-        "United Kingdom: those with no wage went short on 31 days; 449 died.",
-        "United States: those with no wage went short on 31 days; 1 died.",
-        "United Kingdom: 28 sank into pauperism.",
-        "Population grew: United Kingdom +93, United States +136, Russia +180.",
-        "United Kingdom: 95,644 souls, 102 days of subsistence in store, 2,936 without work.",
-        "Store: Corn +94,384.19 t, Cloth +2,259,683.75 m, Fibre +93,000 kg, Iron +186 t, Machinery +217 machine"
+        "United Kingdom: those with no wage went short on 31 days; 377 died.",
+        "United States: those with no wage went short on 31 days; 0 died.",
+        "United Kingdom: 23 sank into pauperism.",
+        "Population grew: United Kingdom +94, United States +136, Russia +180.",
+        "United Kingdom: 95,717 souls, 102 days of subsistence in store, 2,494 without work.",
+        "Store: Corn +94,169.23 t, Cloth +2,255,384.5 m, Fibre +93,000 kg, Iron +186 t, Machinery +217 machine"
       ],
       digest.Lines);
+  }
+
+  [Fact]
+  public void The_scenario_draws_its_borders()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    Assert.Equal(
+      [("Lancashire", "Kent"), ("New England", "Carolina"), ("Muscovy", "Ukraine")],
+      world.Borders.Select(border => (ProvinceNamed(world, border.One), ProvinceNamed(world, border.Other))));
+  }
+
+  [Fact]
+  public void Each_province_starts_with_a_month_of_what_its_people_eat()
+  {
+    var world = EighteenThirtySix.Build().World;
+
+    Assert.All(
+      world.Countries.SelectMany(country => country.Provinces),
+      province => Assert.True(Standing.DaysOfSubsistence(province, world.Subsistence) >= 30m, province.Name));
+  }
+
+  [Fact]
+  public void A_year_left_alone_keeps_britain_and_america_supplied()
+  {
+    var reports = Session.Begin(EighteenThirtySix.Build()).Advance(365);
+
+    Assert.Empty(reports.SelectMany(report => report.Of<CarriageFellShort>()));
+    Assert.Empty(reports.SelectMany(report => report.Of<PeopleWentWithout>()));
+    Assert.Empty(reports.SelectMany(report => report.Of<BranchStoodIdle>()));
+  }
+
+  [Fact]
+  public void Goods_cross_every_border_where_they_are_wanted()
+  {
+    var session = Session.Begin(EighteenThirtySix.Build());
+
+    session.Advance(60);
+
+    // None of these provinces makes the good named; each has eaten or worked through its first month of it.
+    Assert.True(Holds(session.World, "Lancashire", "Corn") > 0m);
+    Assert.True(Holds(session.World, "Lancashire", "Fibre") > 0m);
+    Assert.True(Holds(session.World, "Kent", "Cloth") > 0m);
+    Assert.True(Holds(session.World, "New England", "Fibre") > 0m);
+    Assert.True(Holds(session.World, "Carolina", "Cloth") > 0m);
+    Assert.True(Holds(session.World, "Ukraine", "Cloth") > 0m);
+  }
+
+  [Fact]
+  public void Russias_provinces_live_mostly_on_their_own()
+  {
+    var world = EighteenThirtySix.Build().World;
+    var muscovy = world.Countries.SelectMany(country => country.Provinces).Single(province => province.Name == "Muscovy");
+    var cloth = world.Register.Commodities.Single(commodity => commodity.Name == "Cloth").Id;
+    var date = GameDate.Of(1836, 1, 1);
+
+    for (var day = 0; day < 90; day++)
+    {
+      var before = muscovy.Store.AmountOf(cloth);
+
+      date = date.NextDay();
+      world.Elapse(date);
+
+      // What Muscovy gave up today, beyond what it wove and wore, never exceeds a twentieth of what it held.
+      Assert.True(before + 93_000m - muscovy.Store.AmountOf(cloth) - muscovy.Population * 0.5m <= before * 0.05m);
+    }
   }
 
   [Fact]
@@ -266,6 +333,18 @@ public class EighteenThirtySixTests
   {
     return world.Register.Commodities.ToDictionary(
       commodity => commodity.Name, commodity => decimal.Round(commodity.Value.Magnitude.Hours, 4));
+  }
+
+  private static string ProvinceNamed(World world, ProvinceId province)
+  {
+    return world.Countries.SelectMany(country => country.Provinces).Single(candidate => candidate.Id == province).Name;
+  }
+
+  private static decimal Holds(World world, string province, string commodity)
+  {
+    var where = world.Countries.SelectMany(country => country.Provinces).Single(candidate => candidate.Name == province);
+
+    return where.Store.AmountOf(world.Register.Commodities.Single(candidate => candidate.Name == commodity).Id);
   }
 
   private static Dictionary<string, decimal> Holdings(World world, Country country)

@@ -202,7 +202,8 @@ section. In `EighteenThirtySix`:
   - Large farming: 50,000,000 h, from Peasant tillage;
   - Machine shop: 1,000,000 h, from Iron working;
   - Power loom: 20,000,000 h, from Hand loom and Machine shop.
-- Each country learns its starting techniques with `Learn` before the world is assembled.
+- Each country learns its starting techniques with `Learn` before the world is assembled. Since
+  plan 10 the catalogue also holds Carting, an elementary technique every country knows.
 
 ### Console
 
@@ -297,7 +298,7 @@ Notable otherwise.
 Knowledge travelling by trade, migration or espionage. Techniques that are forgotten. Development
 driven by labour shortages, the rate of profit or competition between countries, beyond the flat
 weight of the mode. A player or AI choice of what to develop: development goes wherever labour is
-done, and is chosen only by choosing what to work at. New techniques beyond the scenario's seven.
+done, and is chosen only by choosing what to work at. New techniques beyond the scenario's eight.
 Earlier start dates (see the README).
 
 ## Done when

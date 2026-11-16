@@ -429,6 +429,8 @@ public sealed class Terminal
         .ToList();
 
       _output.WriteLine($"    Without work: {(idle.Count == 0 ? "no one" : string.Join(", ", idle))}");
+      _output.WriteLine($"    Borders: {BordersOf(province)}");
+      _output.WriteLine($"    Store: {StockList(province.Store)}");
     }
   }
 
@@ -456,12 +458,40 @@ public sealed class Terminal
       return;
     }
 
+    _output.WriteLine("All provinces:");
+
     foreach (var stock in country.Store.Stocks)
     {
       _output.WriteLine(
-        $"{_session.World.Register.Get(stock.Commodity).Name}: {Shown(stock.Quantity)} " +
+        $"  {_session.World.Register.Get(stock.Commodity).Name}: {Shown(stock.Quantity)} " +
         $"({Number(_session.World.Register.ValueOf(stock).Magnitude.Hours)} h)");
     }
+
+    foreach (var province in country.Provinces)
+    {
+      _output.WriteLine($"{province.Name}: {StockList(province.Store)}");
+    }
+  }
+
+  /// <summary>What a store holds, commodity by commodity, on one line.</summary>
+  private string StockList(Store store)
+  {
+    return store.Stocks.Count == 0
+      ? "nothing"
+      : string.Join(", ", store.Stocks.Select(stock => $"{_session.World.Register.Get(stock.Commodity).Name} {Shown(stock.Quantity)}"));
+  }
+
+  private string BordersOf(Province province)
+  {
+    var neighbours = _session.World.Borders
+      .Where(border => border.Joins(province.Id))
+      .Select(border => border.One == province.Id ? border.Other : border.One)
+      .Select(neighbour => _session.World.Countries.SelectMany(country => country.Provinces)
+        .FirstOrDefault(candidate => candidate.Id == neighbour)?.Name)
+      .OfType<string>()
+      .ToList();
+
+    return neighbours.Count == 0 ? "none" : string.Join(", ", neighbours);
   }
 
   private void Values()
@@ -740,7 +770,7 @@ public sealed class Terminal
     _output.WriteLine("Looking");
     _output.WriteLine("  status                   the date, and every country, numbered");
     _output.WriteLine("  provinces                your provinces, numbered: classes, branches, labour, who is without work");
-    _output.WriteLine("  stores                   what your country has laid up, and what it is worth");
+    _output.WriteLine("  stores                   what your country has laid up, in all and province by province");
     _output.WriteLine("  values                   every commodity, numbered, and its value");
     _output.WriteLine("  techniques               every known way of working, numbered");
     _output.WriteLine("  laws                     the laws in force and the rest");

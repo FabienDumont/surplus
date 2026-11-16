@@ -233,6 +233,26 @@ public class DigestTests
   }
 
   [Fact]
+  public void A_province_running_low_is_named_though_the_country_is_well_stocked()
+  {
+    var lancashire = new ProvinceBuilder().WithName("Lancashire")
+      .WithClasses(ClassPresence.Of(SocialClass.Proletariat, 100))
+      .Holding(Stock.Of(_cloth.Id, Quantity.Of(200m, Metre)), Stock.Of(_corn.Id, Quantity.Of(4m, Tonne))).Build();
+    var kent = new ProvinceBuilder().WithName("Kent")
+      .WithClasses(ClassPresence.Of(SocialClass.Proletariat, 100))
+      .Holding(Stock.Of(_cloth.Id, Quantity.Of(5_000m, Metre)), Stock.Of(_corn.Id, Quantity.Of(100m, Tonne))).Build();
+    var kingdom = new CountryBuilder().WithName("United Kingdom").Played().WithProvinces(lancashire, kent).Build();
+    var world = new WorldBuilder().WithRegister(CommodityRegister.Of(_cloth, _corn)).WithSubsistence(Basket())
+      .WithCountries(kingdom).Build();
+
+    var digest = Digest.Of(PassageFrom(world, kingdom.Store), world, UnitSystem.Metric);
+
+    // Four days in Lancashire, a hundred in Kent: only Lancashire is named.
+    Assert.Contains("Lancashire: 4 days of subsistence in store.", digest.Lines);
+    Assert.DoesNotContain(digest.Lines, line => line.StartsWith("Kent:"));
+  }
+
+  [Fact]
   public void The_change_in_the_players_store_is_shown_item_by_item()
   {
     var (world, _) = Kingdom();

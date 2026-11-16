@@ -1,5 +1,6 @@
 using Surplus.Domain.GameEngine;
 using Surplus.Domain.Simulation;
+using Surplus.Domain.Simulation.Circulation;
 using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Politics;
@@ -24,6 +25,7 @@ public static class EighteenThirtySix
   #region Fields
 
   private static readonly UnitOfMeasure Kilogram = UnitOfMeasure.Of("kg");
+  private static readonly UnitOfMeasure Load = UnitOfMeasure.Of("load");
   private static readonly UnitOfMeasure Machine = UnitOfMeasure.Of("machine");
   private static readonly UnitOfMeasure Metre = UnitOfMeasure.Of("m");
   private static readonly UnitOfMeasure Tonne = UnitOfMeasure.Of("t");
@@ -42,9 +44,18 @@ public static class EighteenThirtySix
     var register = Commodities();
     var techniques = Techniques(register);
 
+    var unitedKingdom = UnitedKingdom(register, techniques);
+    var unitedStates = UnitedStates(register, techniques);
+    var russia = Russia(register, techniques);
+
     var world = World.Assemble(
-      register, techniques, Basket(register),
-      [UnitedKingdom(register, techniques), UnitedStates(register, techniques), Russia(register, techniques)]
+      register, techniques, Basket(register), [unitedKingdom, unitedStates, russia],
+      [
+        Between(unitedKingdom, "Lancashire", "Kent"),
+        Between(unitedStates, "New England", "Carolina"),
+        Between(russia, "Muscovy", "Ukraine")
+      ],
+      Haulage(register)
     );
 
     return new Scenario("1836", GameDate.Of(1836, 1, 1), world);
@@ -56,6 +67,31 @@ public static class EighteenThirtySix
     return Subsistence.Of(
       Stock.Of(Named(register, "Corn").Id, Quantity.Of(0.025m, Tonne)),
       Stock.Of(Named(register, "Cloth").Id, Quantity.Of(0.5m, Metre)));
+  }
+
+  /// <summary>
+  /// The room each good takes on a cart, in loads a unit. Corn and iron are
+  /// carried by the tonne, a machine is half a load, and cloth and fibre are
+  /// light for their worth.
+  /// </summary>
+  private static Haulage Haulage(CommodityRegister register)
+  {
+    return Domain.Simulation.Circulation.Haulage.Of(
+      Named(register, "Carriage").Id,
+      [
+        new Bulk(Named(register, "Corn").Id, 1m),
+        new Bulk(Named(register, "Cloth").Id, 0.0005m),
+        new Bulk(Named(register, "Fibre").Id, 0.001m),
+        new Bulk(Named(register, "Iron").Id, 1m),
+        new Bulk(Named(register, "Machinery").Id, 0.5m)
+      ]);
+  }
+
+  private static Border Between(Country country, string one, string other)
+  {
+    return new Border(
+      country.Provinces.Single(province => province.Name == one).Id,
+      country.Provinces.Single(province => province.Name == other).Id);
   }
 
   private static CommodityRegister Commodities()
@@ -71,7 +107,9 @@ public static class EighteenThirtySix
         "Iron", UseValue.Of("metal to be worked", Tonne), Department.MeansOfProduction, LaborTime.FromHours(100m)),
       Commodity.Produce(
         "Machinery", UseValue.Of("motive and working machinery", Machine), Department.MeansOfProduction,
-        LaborTime.FromHours(2_100m))
+        LaborTime.FromHours(2_100m)),
+      Commodity.Produce(
+        "Carriage", UseValue.Of("carrying goods", Load), Department.MeansOfProduction, LaborTime.FromHours(10m))
     );
   }
 
@@ -98,7 +136,8 @@ public static class EighteenThirtySix
       Technique.Of("Iron working", iron, ProductiveForm.Cooperation, Quantity.Of(0.01m, Tonne), 0m, [], []),
       Technique.Of(
         "Machine shop", machinery, ProductiveForm.Manufacture, Quantity.Of(0.0005m, Machine), 0m, [],
-        [Stock.Of(iron, Quantity.Of(0.006m, Tonne))])
+        [Stock.Of(iron, Quantity.Of(0.006m, Tonne))]),
+      Technique.Of("Carting", Named(register, "Carriage").Id, ProductiveForm.Cooperation, Quantity.Of(0.1m, Load), 0m, [], [])
     ];
   }
 
@@ -115,6 +154,7 @@ public static class EighteenThirtySix
     Work(lancashire, Named(techniques, "Power loom"), SocialClass.Proletariat, 5_000);
     Work(lancashire, Named(techniques, "Iron working"), SocialClass.Proletariat, 150);
     Work(lancashire, Named(techniques, "Machine shop"), SocialClass.Proletariat, 2_000);
+    Work(lancashire, Named(techniques, "Carting"), SocialClass.Proletariat, 20);
 
     var kent = Province.Establish(
       "Kent",
@@ -126,6 +166,7 @@ public static class EighteenThirtySix
     );
     Work(kent, Named(techniques, "Large farming"), SocialClass.AgriculturalProletariat, 45_000);
     Work(kent, Named(techniques, "Fibre growing"), SocialClass.AgriculturalProletariat, 10_500);
+    Work(kent, Named(techniques, "Carting"), SocialClass.AgriculturalProletariat, 500);
 
     var country = Country.Found(
       "United Kingdom", CountryControl.Player,
@@ -133,11 +174,14 @@ public static class EighteenThirtySix
     );
     country.Annex(kent);
 
-    LayUp(country, Named(register, "Corn"), 150_000m);
-    LayUp(country, Named(register, "Cloth"), 3_000_000m);
-    LayUp(country, Named(register, "Fibre"), 1_800_000m);
-    LayUp(country, Named(register, "Iron"), 360m);
-    LayUp(country, Named(register, "Machinery"), 150m);
+    // Thirty days of each province's own need, the rest where it is made.
+    LayUp(lancashire, Named(register, "Corn"), 13_125m);
+    LayUp(kent, Named(register, "Corn"), 136_875m);
+    LayUp(lancashire, Named(register, "Cloth"), 1_822_500m);
+    LayUp(kent, Named(register, "Cloth"), 1_177_500m);
+    LayUp(lancashire, Named(register, "Fibre"), 1_800_000m);
+    LayUp(lancashire, Named(register, "Iron"), 360m);
+    LayUp(lancashire, Named(register, "Machinery"), 150m);
 
     return country;
   }
@@ -158,6 +202,7 @@ public static class EighteenThirtySix
     Work(newEngland, Named(techniques, "Hand loom"), SocialClass.PettyBourgeoisie, 13_000);
     Work(newEngland, Named(techniques, "Iron working"), SocialClass.Proletariat, 200);
     Work(newEngland, Named(techniques, "Machine shop"), SocialClass.Proletariat, 1_000);
+    Work(newEngland, Named(techniques, "Carting"), SocialClass.Proletariat, 13);
 
     var carolina = Province.Establish(
       "Carolina",
@@ -169,16 +214,19 @@ public static class EighteenThirtySix
     );
     Work(carolina, Named(techniques, "Large farming"), SocialClass.Slaves, 12_000);
     Work(carolina, Named(techniques, "Fibre growing"), SocialClass.Slaves, 10_000);
+    Work(carolina, Named(techniques, "Carting"), SocialClass.Slaves, 40);
 
     var country = Country.Found(
       "United States", CountryControl.Ai, Government.Of(GovernmentForm.Republic, Ideology.Liberalism), newEngland
     );
     country.Annex(carolina);
 
-    LayUp(country, Named(register, "Corn"), 112_500m);
-    LayUp(country, Named(register, "Cloth"), 2_250_000m);
-    LayUp(country, Named(register, "Fibre"), 1_170_000m);
-    LayUp(country, Named(register, "Iron"), 180m);
+    LayUp(newEngland, Named(register, "Corn"), 75_000m);
+    LayUp(carolina, Named(register, "Corn"), 37_500m);
+    LayUp(newEngland, Named(register, "Cloth"), 1_500_000m);
+    LayUp(carolina, Named(register, "Cloth"), 750_000m);
+    LayUp(newEngland, Named(register, "Fibre"), 1_170_000m);
+    LayUp(newEngland, Named(register, "Iron"), 180m);
 
     return country;
   }
@@ -198,6 +246,7 @@ public static class EighteenThirtySix
     Work(muscovy, Named(techniques, "Peasant tillage"), SocialClass.Serfs, 42_000);
     Work(muscovy, Named(techniques, "Fibre growing"), SocialClass.Serfs, 8_000);
     Work(muscovy, Named(techniques, "Hand loom"), SocialClass.Serfs, 15_500);
+    Work(muscovy, Named(techniques, "Carting"), SocialClass.Serfs, 15);
 
     var ukraine = Province.Establish(
       "Ukraine",
@@ -214,9 +263,11 @@ public static class EighteenThirtySix
     );
     country.Annex(ukraine);
 
-    LayUp(country, Named(register, "Corn"), 135_000m);
-    LayUp(country, Named(register, "Cloth"), 2_700_000m);
-    LayUp(country, Named(register, "Fibre"), 1_395_000m);
+    LayUp(muscovy, Named(register, "Corn"), 90_000m);
+    LayUp(ukraine, Named(register, "Corn"), 45_000m);
+    LayUp(muscovy, Named(register, "Cloth"), 1_800_000m);
+    LayUp(ukraine, Named(register, "Cloth"), 900_000m);
+    LayUp(muscovy, Named(register, "Fibre"), 1_395_000m);
 
     return country;
   }
@@ -235,9 +286,9 @@ public static class EighteenThirtySix
     );
   }
 
-  private static void LayUp(Country country, Commodity commodity, decimal amount)
+  private static void LayUp(Province province, Commodity commodity, decimal amount)
   {
-    country.LayUp(Stock.Of(commodity.Id, Quantity.Of(amount, commodity.UseValue.Unit)));
+    province.LayUp(Stock.Of(commodity.Id, Quantity.Of(amount, commodity.UseValue.Unit)));
   }
 
   private static Commodity Named(CommodityRegister register, string name)

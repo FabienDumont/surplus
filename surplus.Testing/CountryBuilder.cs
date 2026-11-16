@@ -18,7 +18,7 @@ public sealed class CountryBuilder
   private CountryId _id = CountryId.New();
   private string _name = "France";
   private List<Province> _provinces = [new ProvinceBuilder().Build()];
-  private Store _store = Store.Empty;
+  private List<Stock> _stocks = [];
 
   #endregion
 
@@ -65,17 +65,26 @@ public sealed class CountryBuilder
     return this;
   }
 
-  /// <summary>Stocks the country's store with exactly these heaps.</summary>
+  /// <summary>
+  /// Lays these heaps up in the country's first province, on top of whatever
+  /// that province already holds. Stores are kept by province; a test that
+  /// needs heaps elsewhere lays them up in the province itself.
+  /// </summary>
   public CountryBuilder Holding(params Stock[] stocks)
   {
-    _store = Store.Of(stocks);
+    _stocks = [.. stocks];
 
     return this;
   }
 
   public Country Build()
   {
-    return Country.Load(_id, _name, _control, _government, _provinces, _store);
+    foreach (var stock in _stocks)
+    {
+      _provinces[0].LayUp(stock);
+    }
+
+    return Country.Load(_id, _name, _control, _government, _provinces);
   }
 
   #endregion

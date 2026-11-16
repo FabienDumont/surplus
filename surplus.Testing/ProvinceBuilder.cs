@@ -1,3 +1,4 @@
+using Surplus.Domain.Simulation.Commodities;
 using Surplus.Domain.Simulation.Countries;
 using Surplus.Domain.Simulation.Production;
 using Surplus.Domain.Simulation.Society;
@@ -15,6 +16,7 @@ public sealed class ProvinceBuilder
   private ClassComposition _composition = new ClassCompositionBuilder().Build();
   private ProvinceId _id = ProvinceId.New();
   private string _name = "Île-de-France";
+  private Store _store = Store.Empty;
 
   #endregion
 
@@ -52,10 +54,18 @@ public sealed class ProvinceBuilder
     return this;
   }
 
+  /// <summary>Stocks the province's store with exactly these heaps.</summary>
+  public ProvinceBuilder Holding(params Stock[] stocks)
+  {
+    _store = Store.Of(stocks);
+
+    return this;
+  }
+
   /// <summary>Shorthand for a province whose population has yet to be settled.</summary>
   public ProvinceBuilder Unpeopled() => WithComposition(ClassComposition.Empty);
 
-  public Province Build() => Province.Load(_id, _name, _composition, _branches);
+  public Province Build() => Province.Load(_id, _name, _composition, _branches, _store);
 
   #endregion
 }

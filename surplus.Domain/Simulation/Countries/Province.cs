@@ -57,16 +57,24 @@ public sealed class Province
   /// <summary>What is produced here, one branch to a commodity.</summary>
   public IReadOnlyList<Branch> Branches => _branches;
 
+  /// <summary>
+  /// What this province has laid up. Its branches work out of it and its people
+  /// eat out of it: a granary in Kent feeds no one in Lancashire until the corn
+  /// has been carried there.
+  /// </summary>
+  public Store Store { get; private set; }
+
   #endregion
 
   #region Ctors
 
-  private Province(ProvinceId id, string name, ClassComposition composition, List<Branch> branches)
+  private Province(ProvinceId id, string name, ClassComposition composition, List<Branch> branches, Store store)
   {
     Id = id;
     Name = name;
     Composition = composition;
     _branches = branches;
+    Store = store;
   }
 
   #endregion
@@ -80,7 +88,7 @@ public sealed class Province
       throw new DomainException("A province must have a name.");
     }
 
-    return new Province(ProvinceId.New(), name.Trim(), composition, []);
+    return new Province(ProvinceId.New(), name.Trim(), composition, [], Store.Empty);
   }
 
   /// <summary>
@@ -89,9 +97,31 @@ public sealed class Province
   /// was already valid when it was saved.
   /// </summary>
   public static Province Load(
-    ProvinceId id, string name, ClassComposition composition, IEnumerable<Branch> branches)
+    ProvinceId id, string name, ClassComposition composition, IEnumerable<Branch> branches, Store store)
   {
-    return new Province(id, name, composition, [.. branches]);
+    return new Province(id, name, composition, [.. branches], store);
+  }
+
+  /// <summary>
+  /// Puts something in the store that no day of the simulation produced: the
+  /// granaries and warehouses a scenario opens on, the fruit of labour done
+  /// before the game began.
+  /// </summary>
+  public void LayUp(Stock stock)
+  {
+    Store = Store.LaidUp(stock);
+  }
+
+  /// <summary>What production, circulation or the people put into the store.</summary>
+  internal void LayUp(IEnumerable<Stock> stocks)
+  {
+    Store = Store.LaidUp(stocks);
+  }
+
+  /// <summary>What production, circulation or the people take out of the store.</summary>
+  internal void Draw(IEnumerable<Stock> stocks)
+  {
+    Store = Store.Drawn(stocks);
   }
 
   public int HeadsOf(SocialClass socialClass)
